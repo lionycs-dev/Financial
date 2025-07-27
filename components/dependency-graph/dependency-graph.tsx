@@ -14,10 +14,12 @@ import ReactFlow, {
   ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import ELK from 'elkjs/lib/elk.bundled.js';
 
 import { StreamNode } from './nodes/stream-node';
 import { ProductNode } from './nodes/product-node';
 import { ClientGroupNode } from './nodes/client-group-node';
+import { ClientGroupTypeNode } from './nodes/client-group-type-node';
 import { RelationshipEdge } from './edges/relationship-edge';
 import { RelationshipModal } from './relationship-modal';
 import { ConnectionLine } from './connection-line';
@@ -36,11 +38,85 @@ const NODE_TYPES = {
   stream: StreamNode,
   product: ProductNode,
   clientGroup: ClientGroupNode,
+  clientGroupType: ClientGroupTypeNode,
 } as const;
 
 const EDGE_TYPES = {
   relationship: RelationshipEdge,
 } as const;
+
+// Client Group Type ID mapping (since we use string IDs like 'B2B' but DB expects numbers)
+const CLIENT_GROUP_TYPE_IDS = {
+  'B2B': 1,
+  'B2C': 2,
+  'DTC': 3,
+} as const;
+
+// ELK layout configuration
+const elk = new ELK();
+
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'RIGHT') => {
+  // Filter edges to only include those between existing nodes
+  const nodeIds = new Set(nodes.map(node => node.id));
+  const validEdges = edges.filter(edge => {
+    const hasSource = nodeIds.has(edge.source);
+    const hasTarget = nodeIds.has(edge.target);
+    if (!hasSource || !hasTarget) {
+      console.warn(`Filtering out edge ${edge.id}: source=${edge.source} (exists: ${hasSource}), target=${edge.target} (exists: ${hasTarget})`);
+    }
+    return hasSource && hasTarget;
+  });
+
+  console.log('ELK input nodes:', nodes.map(n => n.id));
+  console.log('ELK input valid edges:', validEdges.map(e => ({ id: e.id, source: e.source, target: e.target })));
+
+  const graph = {
+    id: 'root',
+    layoutOptions: {
+      'elk.algorithm': 'layered',
+      'elk.direction': direction,
+      'elk.spacing.nodeNode': '50',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '100',
+    },
+    children: nodes.map((node) => ({
+      id: node.id,
+      width: 250,
+      height: 120,
+    })),
+    edges: validEdges.map((edge) => ({
+      id: edge.id,
+      sources: [edge.source],
+      targets: [edge.target],
+    })),
+  };
+
+  console.log('ELK graph:', JSON.stringify(graph, null, 2));
+
+  return elk
+    .layout(graph)
+    .then((layoutedGraph) => {
+      console.log('ELK layout result:', layoutedGraph);
+      return {
+        nodes: nodes.map((node) => {
+          const layoutedNode = layoutedGraph.children?.find(
+            (lgNode) => lgNode.id === node.id
+          );
+          return {
+            ...node,
+            position: {
+              x: layoutedNode?.x ?? 0,
+              y: layoutedNode?.y ?? 0,
+            },
+          };
+        }),
+        edges: validEdges,
+      };
+    })
+    .catch((error) => {
+      console.error('ELK layout error:', error);
+      return null;
+    });
+};
 
 function DependencyGraphInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -51,8 +127,8 @@ function DependencyGraphInner() {
   const [connectionData, setConnectionData] = useState<{
     source: string;
     target: string;
-    sourceType: 'stream' | 'product' | 'clientGroup';
-    targetType: 'stream' | 'product' | 'clientGroup';
+    sourceType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
+    targetType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
   } | null>(null);
   const [editingRelationship, setEditingRelationship] = useState<{
     id: string;
@@ -75,6 +151,10 @@ function DependencyGraphInner() {
       { source: 'clientgroup', target: 'product' }, // ClientGroup can connect to Product  
       { source: 'clientgroup', target: 'stream' }, // ClientGroup can connect to Revenue Stream
       { source: 'product', target: 'product' }, // Product can convert to Product
+      { source: 'product', target: 'clientgrouptype' }, // Product can connect to ClientGroupType
+      { source: 'clientgrouptype', target: 'product' }, // ClientGroupType can connect to Product
+      { source: 'stream', target: 'clientgrouptype' }, // Revenue Stream can connect to ClientGroupType
+      { source: 'clientgrouptype', target: 'stream' }, // ClientGroupType can connect to Revenue Stream
     ];
 
     return validConnections.some(
@@ -88,14 +168,18 @@ function DependencyGraphInner() {
         const rawSourceType = params.source.split('-')[0];
         const rawTargetType = params.target.split('-')[0];
 
-        const sourceType: 'stream' | 'product' | 'clientGroup' =
+        const sourceType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType' =
           rawSourceType === 'clientgroup'
             ? 'clientGroup'
-            : (rawSourceType as 'stream' | 'product' | 'clientGroup');
-        const targetType: 'stream' | 'product' | 'clientGroup' =
+            : rawSourceType === 'clientgrouptype'
+            ? 'clientGroupType'
+            : (rawSourceType as 'stream' | 'product' | 'clientGroup' | 'clientGroupType');
+        const targetType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType' =
           rawTargetType === 'clientgroup'
             ? 'clientGroup'
-            : (rawTargetType as 'stream' | 'product' | 'clientGroup');
+            : rawTargetType === 'clientgrouptype'
+            ? 'clientGroupType'
+            : (rawTargetType as 'stream' | 'product' | 'clientGroup' | 'clientGroupType');
 
         setConnectionData({
           source: params.source,
@@ -127,9 +211,9 @@ function DependencyGraphInner() {
 
           // Determine correct source/target based on relationship type
           let finalSourceType: string,
-            finalSourceId: number,
+            finalSourceId: number | string,
             finalTargetType: string,
-            finalTargetId: number;
+            finalTargetId: number | string;
 
           if (relationshipData.type === 'clientgroup_to_product') {
             // For clientgroup_to_product, clientgroup is ALWAYS source, product is ALWAYS target
@@ -159,6 +243,34 @@ function DependencyGraphInner() {
               finalTargetType = 'stream';
               finalTargetId = parseInt(connectionData.source.split('-')[1]);
             }
+          } else if (relationshipData.type === 'product_to_clientgrouptype') {
+            // Product to client group type - product is source, clientGroupType is target
+            finalSourceType = 'product';
+            finalSourceId = parseInt(connectionData.source.split('-')[1]);
+            finalTargetType = 'clientGroupType';
+            const targetStringId = connectionData.target.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+            finalTargetId = CLIENT_GROUP_TYPE_IDS[targetStringId];
+          } else if (relationshipData.type === 'stream_to_clientgrouptype') {
+            // Stream to client group type - stream is source, clientGroupType is target
+            finalSourceType = 'stream';
+            finalSourceId = parseInt(connectionData.source.split('-')[1]);
+            finalTargetType = 'clientGroupType';
+            const targetStringId = connectionData.target.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+            finalTargetId = CLIENT_GROUP_TYPE_IDS[targetStringId];
+          } else if (relationshipData.type === 'clientgrouptype_to_product') {
+            // Client group type to product - clientGroupType is source, product is target
+            finalSourceType = 'clientGroupType';
+            const sourceStringId = connectionData.source.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+            finalSourceId = CLIENT_GROUP_TYPE_IDS[sourceStringId];
+            finalTargetType = 'product';
+            finalTargetId = parseInt(connectionData.target.split('-')[1]);
+          } else if (relationshipData.type === 'clientgrouptype_to_stream') {
+            // Client group type to stream - clientGroupType is source, stream is target
+            finalSourceType = 'clientGroupType';
+            const sourceStringId = connectionData.source.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+            finalSourceId = CLIENT_GROUP_TYPE_IDS[sourceStringId];
+            finalTargetType = 'stream';
+            finalTargetId = parseInt(connectionData.target.split('-')[1]);
           } else {
             // For other relationship types, use the connection direction as-is
             finalSourceType =
@@ -293,20 +405,14 @@ function DependencyGraphInner() {
         const newNodes: Node[] = [];
         const newEdges: Edge[] = [];
 
-        // Layout algorithm: Hierarchical left-to-right flow
-        const COLUMN_WIDTH = 350;
-        const NODE_HEIGHT = 120;
-        const VERTICAL_SPACING = 40;
-        const START_X = 50;
-        const START_Y = 50;
-
-        // Column 1: Revenue Streams (leftmost)
-        streams.forEach((stream, index) => {
-          const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
+        // Create nodes without positioning (ELK will handle layout)
+        
+        // Revenue Streams
+        streams.forEach((stream) => {
           newNodes.push({
             id: `stream-${stream.id}`,
             type: 'stream',
-            position: { x: START_X, y },
+            position: { x: 0, y: 0 }, // ELK will set position
             data: {
               id: stream.id,
               name: stream.name,
@@ -316,14 +422,12 @@ function DependencyGraphInner() {
           });
         });
 
-        // Column 2: Products (middle) - simple grid layout
-        products.forEach((product, index) => {
-          const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
-
+        // Products
+        products.forEach((product) => {
           newNodes.push({
             id: `product-${product.id}`,
             type: 'product',
-            position: { x: START_X + COLUMN_WIDTH, y },
+            position: { x: 0, y: 0 }, // ELK will set position
             data: {
               id: product.id,
               name: product.name,
@@ -352,26 +456,55 @@ function DependencyGraphInner() {
           }
         });
 
-        const productYOffset =
-          START_Y + products.length * (NODE_HEIGHT + VERTICAL_SPACING);
+        // Client Group Types - hardcoded B2B, B2C, DTC
+        const clientGroupTypes = [
+          { id: 'B2B', name: 'Business to Business', type: 'B2B' as const, description: 'Companies selling to other companies' },
+          { id: 'B2C', name: 'Business to Consumer', type: 'B2C' as const, description: 'Companies selling directly to consumers' },
+          { id: 'DTC', name: 'Direct to Consumer', type: 'DTC' as const, description: 'Brands selling directly to end customers' },
+        ];
 
-        // Column 3: Client Groups (rightmost) - distributed evenly
-        const clientGroupSpacing = Math.max(
-          NODE_HEIGHT + VERTICAL_SPACING,
-          productYOffset / Math.max(clientGroups.length, 1)
-        );
+        clientGroupTypes.forEach((groupType) => {
+          newNodes.push({
+            id: `clientgrouptype-${groupType.id}`,
+            type: 'clientGroupType',
+            position: { x: 0, y: 0 }, // ELK will set position
+            data: {
+              id: groupType.id,
+              name: groupType.name,
+              type: groupType.type,
+              description: groupType.description,
+            },
+          });
+        });
 
-        clientGroups.forEach((group, index) => {
-          const y = START_Y + index * clientGroupSpacing;
+        // Client Groups
+        clientGroups.forEach((group) => {
           newNodes.push({
             id: `clientgroup-${group.id}`,
             type: 'clientGroup',
-            position: { x: START_X + 2 * COLUMN_WIDTH, y },
+            position: { x: 0, y: 0 }, // ELK will set position
             data: {
               id: group.id,
               name: group.name,
+              type: group.type,
               startingCustomers: group.startingCustomers,
               churnRate: group.churnRate,
+            },
+          });
+
+          // Add automatic edge from client group to its type
+          newEdges.push({
+            id: `auto-clientgroup-type-${group.id}`,
+            source: `clientgrouptype-${group.type}`,
+            target: `clientgroup-${group.id}`,
+            type: 'relationship',
+            style: { stroke: '#8b5cf6', strokeDasharray: '3,3' }, // Purple dashed line for type relationships
+            data: {
+              relationship: 'belongs_to_type',
+              properties: { },
+              isAutomatic: true,
+              onEdit: () => {}, // No edit for automatic relationships
+              onDelete: () => {}, // No delete for automatic relationships
             },
           });
         });
@@ -460,8 +593,38 @@ function DependencyGraphInner() {
           });
         });
 
-        setNodes(newNodes);
-        setEdges(newEdges);
+        // Debug logging
+        console.log('Total nodes created:', newNodes.length);
+        console.log('Node IDs:', newNodes.map(n => n.id));
+        console.log('Total edges created:', newEdges.length);
+        console.log('Edge details:', newEdges.map(e => ({ id: e.id, source: e.source, target: e.target })));
+        
+        // Apply ELK layout
+        try {
+          const layouted = await getLayoutedElements(newNodes, newEdges);
+          if (layouted) {
+            setNodes(layouted.nodes);
+            setEdges(layouted.edges);
+          } else {
+            // Fallback to manual layout if ELK fails
+            console.warn('ELK layout failed, using fallback positioning');
+            const fallbackNodes = newNodes.map((node, index) => ({
+              ...node,
+              position: { x: (index % 4) * 300 + 50, y: Math.floor(index / 4) * 150 + 50 },
+            }));
+            setNodes(fallbackNodes);
+            setEdges(newEdges);
+          }
+        } catch (error) {
+          console.error('Error applying ELK layout:', error);
+          // Fallback to manual layout
+          const fallbackNodes = newNodes.map((node, index) => ({
+            ...node,
+            position: { x: (index % 4) * 300 + 50, y: Math.floor(index / 4) * 150 + 50 },
+          }));
+          setNodes(fallbackNodes);
+          setEdges(newEdges);
+        }
       } catch (error) {
         console.error('Failed to load dependency graph data:', error);
       } finally {
@@ -490,20 +653,14 @@ function DependencyGraphInner() {
               (e) => e.data?.relationship !== 'belongs_to'
             );
 
-            // Apply the same layout algorithm for auto-refresh
-            const COLUMN_WIDTH = 350;
-            const NODE_HEIGHT = 120;
-            const VERTICAL_SPACING = 40;
-            const START_X = 50;
-            const START_Y = 50;
-
-            // Column 1: Revenue Streams
-            streams.forEach((stream, index) => {
-              const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
+            // Create nodes for auto-refresh (ELK will handle layout)
+            
+            // Revenue Streams
+            streams.forEach((stream) => {
               newNodes.push({
                 id: `stream-${stream.id}`,
                 type: 'stream',
-                position: { x: START_X, y },
+                position: { x: 0, y: 0 }, // ELK will set position
                 data: {
                   id: stream.id,
                   name: stream.name,
@@ -513,14 +670,12 @@ function DependencyGraphInner() {
               });
             });
 
-            // Column 2: Products - simple grid layout
-            products.forEach((product, index) => {
-              const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
-
+            // Products
+            products.forEach((product) => {
               newNodes.push({
                 id: `product-${product.id}`,
                 type: 'product',
-                position: { x: START_X + COLUMN_WIDTH, y },
+                position: { x: 0, y: 0 }, // ELK will set position
                 data: {
                   id: product.id,
                   name: product.name,
@@ -549,34 +704,85 @@ function DependencyGraphInner() {
               }
             });
 
-            const productYOffset =
-              START_Y + products.length * (NODE_HEIGHT + VERTICAL_SPACING);
+            // Client Group Types - hardcoded B2B, B2C, DTC
+            const clientGroupTypes = [
+              { id: 'B2B', name: 'Business to Business', type: 'B2B' as const, description: 'Companies selling to other companies' },
+              { id: 'B2C', name: 'Business to Consumer', type: 'B2C' as const, description: 'Companies selling directly to consumers' },
+              { id: 'DTC', name: 'Direct to Consumer', type: 'DTC' as const, description: 'Brands selling directly to end customers' },
+            ];
 
-            // Column 3: Client Groups
-            const clientGroupSpacing = Math.max(
-              NODE_HEIGHT + VERTICAL_SPACING,
-              productYOffset / Math.max(clientGroups.length, 1)
-            );
-
-            clientGroups.forEach((group, index) => {
-              const y = START_Y + index * clientGroupSpacing;
+            clientGroupTypes.forEach((groupType) => {
               newNodes.push({
-                id: `clientgroup-${group.id}`,
-                type: 'clientGroup',
-                position: { x: START_X + 2 * COLUMN_WIDTH, y },
+                id: `clientgrouptype-${groupType.id}`,
+                type: 'clientGroupType',
+                position: { x: 0, y: 0 }, // ELK will set position
                 data: {
-                  id: group.id,
-                  name: group.name,
-                  startingCustomers: group.startingCustomers,
-                  churnRate: group.churnRate,
+                  id: groupType.id,
+                  name: groupType.name,
+                  type: groupType.type,
+                  description: groupType.description,
                 },
               });
             });
 
-            setNodes(newNodes);
-            // Keep existing custom relationships as-is, since all relationships
-            // are now managed through the unified relationships table
-            setEdges(existingCustomEdges);
+            // Client Groups
+            clientGroups.forEach((group) => {
+              newNodes.push({
+                id: `clientgroup-${group.id}`,
+                type: 'clientGroup',
+                position: { x: 0, y: 0 }, // ELK will set position
+                data: {
+                  id: group.id,
+                  name: group.name,
+                  type: group.type,
+                  startingCustomers: group.startingCustomers,
+                  churnRate: group.churnRate,
+                },
+              });
+
+              // Add automatic edge from client group to its type
+              existingCustomEdges.push({
+                id: `auto-clientgroup-type-${group.id}`,
+                source: `clientgrouptype-${group.type}`,
+                target: `clientgroup-${group.id}`,
+                type: 'relationship',
+                style: { stroke: '#8b5cf6', strokeDasharray: '3,3' }, // Purple dashed line for type relationships
+                data: {
+                  relationship: 'belongs_to_type',
+                  properties: { },
+                  isAutomatic: true,
+                  onEdit: () => {}, // No edit for automatic relationships
+                  onDelete: () => {}, // No delete for automatic relationships
+                },
+              });
+            });
+
+            // Apply ELK layout for auto-refresh
+            try {
+              const layouted = await getLayoutedElements(newNodes, existingCustomEdges);
+              if (layouted) {
+                setNodes(layouted.nodes);
+                setEdges(layouted.edges);
+              } else {
+                // Fallback to manual layout if ELK fails
+                console.warn('ELK layout failed on auto-refresh, using fallback positioning');
+                const fallbackNodes = newNodes.map((node, index) => ({
+                  ...node,
+                  position: { x: (index % 4) * 300 + 50, y: Math.floor(index / 4) * 150 + 50 },
+                }));
+                setNodes(fallbackNodes);
+                setEdges(existingCustomEdges);
+              }
+            } catch (error) {
+              console.error('Error applying ELK layout on auto-refresh:', error);
+              // Fallback to manual layout
+              const fallbackNodes = newNodes.map((node, index) => ({
+                ...node,
+                position: { x: (index % 4) * 300 + 50, y: Math.floor(index / 4) * 150 + 50 },
+              }));
+              setNodes(fallbackNodes);
+              setEdges(existingCustomEdges);
+            }
           } catch (error) {
             console.error('Failed to reload dependency graph data:', error);
           }

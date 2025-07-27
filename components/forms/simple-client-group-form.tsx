@@ -13,6 +13,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useState, useEffect } from 'react';
 import React from 'react';
 import { z } from 'zod';
@@ -20,6 +27,7 @@ import { z } from 'zod';
 // Simplified client group schema without product relationships
 const simpleClientGroupSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  type: z.enum(['B2B', 'B2C', 'DTC']),
   startingCustomers: z
     .string()
     .min(1, 'Starting customers is required')
@@ -44,6 +52,7 @@ interface SimpleClientGroupFormProps {
   initialData?: {
     id: number;
     name: string;
+    type: 'B2B' | 'B2C' | 'DTC';
     startingCustomers: number;
     churnRate: string;
   } | null;
@@ -61,6 +70,7 @@ export function SimpleClientGroupForm({
     resolver: zodResolver(simpleClientGroupSchema),
     defaultValues: {
       name: initialData?.name || '',
+      type: initialData?.type || 'B2B',
       startingCustomers: initialData?.startingCustomers?.toString() || '',
       churnRate: initialData?.churnRate || '',
     },
@@ -71,6 +81,7 @@ export function SimpleClientGroupForm({
     if (initialData) {
       form.reset({
         name: initialData.name,
+        type: initialData.type,
         startingCustomers: initialData.startingCustomers.toString(),
         churnRate: initialData.churnRate,
       });
@@ -88,6 +99,7 @@ export function SimpleClientGroupForm({
 
       const clientGroupData = {
         name: values.name,
+        type: values.type,
         startingCustomers: parseInt(values.startingCustomers),
         churnRate: values.churnRate,
       };
@@ -130,6 +142,29 @@ export function SimpleClientGroupForm({
               <FormControl>
                 <Input placeholder="Enterprise Customers" {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Client Group Type</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client group type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="B2B">B2B (Business to Business)</SelectItem>
+                  <SelectItem value="B2C">B2C (Business to Consumer)</SelectItem>
+                  <SelectItem value="DTC">DTC (Direct to Consumer)</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

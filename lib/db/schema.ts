@@ -17,6 +17,12 @@ export const revenueTypeEnum = pgEnum('revenue_type', [
   'RevenueOnly',
 ]);
 
+export const clientGroupTypeEnum = pgEnum('client_group_type', [
+  'B2B',
+  'B2C', 
+  'DTC',
+]);
+
 // Revenue Stream table
 export const revenueStreams = pgTable('revenue_streams', {
   id: serial('id').primaryKey(),
@@ -48,18 +54,22 @@ export const clientGroups = pgTable('client_groups', {
   name: text('name').notNull(),
   startingCustomers: integer('starting_customers').notNull(),
   churnRate: decimal('churn_rate', { precision: 5, scale: 4 }).notNull(), // percentage as decimal
+  type: clientGroupTypeEnum('type').notNull(), // B2B, B2C, DTC
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export type ClientGroupSelect = typeof clientGroups.$inferSelect;
+export type ClientGroupInsert = typeof clientGroups.$inferInsert;
+
 // Unified Relationships table - handles remaining relationships (product_to_stream is now in products table)
 export const relationships = pgTable('relationships', {
   id: serial('id').primaryKey(),
-  sourceType: text('source_type').notNull(), // 'stream', 'product', 'clientGroup'
+  sourceType: text('source_type').notNull(), // 'stream', 'product', 'clientGroup', 'clientGroupType'
   sourceId: integer('source_id').notNull(),
-  targetType: text('target_type').notNull(), // 'stream', 'product', 'clientGroup'
+  targetType: text('target_type').notNull(), // 'stream', 'product', 'clientGroup', 'clientGroupType'
   targetId: integer('target_id').notNull(),
-  relationshipType: text('relationship_type').notNull(), // 'clientgroup_to_product', 'clientgroup_to_stream', 'product_conversion'
+  relationshipType: text('relationship_type').notNull(), // 'clientgroup_to_product', 'clientgroup_to_stream', 'product_conversion', 'clientgrouptype_to_product', 'clientgrouptype_to_stream'
   properties: json('properties').notNull(), // { weight?, probability?, afterMonths? }
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

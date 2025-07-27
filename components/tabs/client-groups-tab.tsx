@@ -28,6 +28,7 @@ export function ClientGroupsTab() {
     {
       id: number;
       name: string;
+      type: 'B2B' | 'B2C' | 'DTC';
       startingCustomers: number;
       churnRate: string;
       createdAt: Date;
@@ -39,6 +40,7 @@ export function ClientGroupsTab() {
   const [editingClientGroup, setEditingClientGroup] = useState<{
     id: number;
     name: string;
+    type: 'B2B' | 'B2C' | 'DTC';
     startingCustomers: number;
     churnRate: string;
   } | null>(null);
@@ -73,6 +75,7 @@ export function ClientGroupsTab() {
     setEditingClientGroup({
       id: group.id,
       name: group.name,
+      type: group.type,
       startingCustomers: group.startingCustomers,
       churnRate: group.churnRate,
     });
@@ -138,6 +141,7 @@ export function ClientGroupsTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Starting Customers</TableHead>
               <TableHead>Churn Rate</TableHead>
               <TableHead>Created</TableHead>
@@ -147,7 +151,7 @@ export function ClientGroupsTab() {
             {clientGroups.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center text-muted-foreground"
                 >
                   No client groups found. Create your first one to get started.
@@ -161,6 +165,11 @@ export function ClientGroupsTab() {
                   onClick={() => handleEditClientGroup(group)}
                 >
                   <TableCell className="font-medium">{group.name}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800">
+                      {group.type}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     {group.startingCustomers.toLocaleString()}
                   </TableCell>

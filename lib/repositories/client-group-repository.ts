@@ -17,6 +17,7 @@ export class ClientGroupRepository {
 
   async create(data: {
     name: string;
+    type: 'B2B' | 'B2C' | 'DTC';
     startingCustomers: number;
     churnRate: string;
   }) {
@@ -28,6 +29,7 @@ export class ClientGroupRepository {
     id: number,
     data: Partial<{
       name: string;
+      type: 'B2B' | 'B2C' | 'DTC';
       startingCustomers: number;
       churnRate: string;
     }>

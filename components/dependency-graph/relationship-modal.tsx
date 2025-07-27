@@ -35,6 +35,10 @@ const relationshipSchema = z.object({
     'clientgroup_to_product',
     'clientgroup_to_stream',
     'product_conversion',
+    'clientgrouptype_to_product',
+    'clientgrouptype_to_stream',
+    'product_to_clientgrouptype',
+    'stream_to_clientgrouptype',
   ]),
   weight: z
     .string()
@@ -66,14 +70,18 @@ const relationshipSchema = z.object({
 type RelationshipType =
   | 'clientgroup_to_product'
   | 'clientgroup_to_stream'
-  | 'product_conversion';
+  | 'product_conversion'
+  | 'clientgrouptype_to_product'
+  | 'clientgrouptype_to_stream'
+  | 'product_to_clientgrouptype'
+  | 'stream_to_clientgrouptype';
 type RelationshipFormData = z.infer<typeof relationshipSchema>;
 
 interface RelationshipModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  sourceType: 'stream' | 'product' | 'clientGroup';
-  targetType: 'stream' | 'product' | 'clientGroup';
+  sourceType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
+  targetType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
   sourceId: string;
   targetId: string;
   onSave: (data: RelationshipFormData) => void;
@@ -132,6 +140,14 @@ export function RelationshipModal({
       return 'clientgroup_to_stream';
     if (source === 'product' && target === 'product')
       return 'product_conversion';
+    if (source === 'product' && target === 'clientGroupType')
+      return 'product_to_clientgrouptype';
+    if (source === 'clientGroupType' && target === 'product')
+      return 'clientgrouptype_to_product';
+    if (source === 'stream' && target === 'clientGroupType')
+      return 'stream_to_clientgrouptype';
+    if (source === 'clientGroupType' && target === 'stream')
+      return 'clientgrouptype_to_stream';
     return 'clientgroup_to_product'; // fallback
   }
 
@@ -168,6 +184,35 @@ export function RelationshipModal({
       validTypes.push({
         value: 'product_conversion',
         label: 'Product Conversion',
+      });
+    }
+
+    // Client Group Type relationships
+    if (source === 'product' && target === 'clientGroupType') {
+      validTypes.push({
+        value: 'product_to_clientgrouptype',
+        label: 'Product targets Client Group Type',
+      });
+    }
+
+    if (source === 'clientGroupType' && target === 'product') {
+      validTypes.push({
+        value: 'clientgrouptype_to_product',
+        label: 'Client Group Type purchases Product',
+      });
+    }
+
+    if (source === 'stream' && target === 'clientGroupType') {
+      validTypes.push({
+        value: 'stream_to_clientgrouptype',
+        label: 'Revenue Stream targets Client Group Type',
+      });
+    }
+
+    if (source === 'clientGroupType' && target === 'stream') {
+      validTypes.push({
+        value: 'clientgrouptype_to_stream',
+        label: 'Client Group Type purchases from Revenue Stream',
       });
     }
 

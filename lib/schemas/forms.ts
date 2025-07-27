@@ -101,6 +101,7 @@ export type ProductWithPricingPlansFormData = z.infer<
 // Client Group Schema
 export const clientGroupSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  type: z.enum(['B2B', 'B2C', 'DTC']),
   startingCustomers: z.number().min(1, 'Starting customers must be at least 1'),
   churnRate: z
     .string()
