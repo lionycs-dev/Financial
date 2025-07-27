@@ -16,7 +16,6 @@ export type RevenueStreamFormData = z.infer<typeof revenueStreamSchema>;
 
 // Product Schema
 export const productSchema = z.object({
-  streamId: z.number().min(1, 'Revenue stream is required'),
   name: z.string().min(1, 'Name is required'),
   unitCost: z
     .string()
@@ -24,15 +23,6 @@ export const productSchema = z.object({
     .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
       message: 'Unit cost must be a valid positive number',
     }),
-  entryWeight: z
-    .string()
-    .min(1, 'Entry weight is required')
-    .refine(
-      (val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 1,
-      {
-        message: 'Entry weight must be between 0 and 1',
-      }
-    ),
   cac: z
     .string()
     .min(1, 'CAC is required')

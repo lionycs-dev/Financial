@@ -25,8 +25,7 @@ import {
   type ProductWithPricingPlansFormData,
 } from '@/lib/schemas/forms';
 import { createProductWithPricingPlans } from '@/lib/actions/product-actions';
-import { getRevenueStreams } from '@/lib/actions/revenue-stream-actions';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface ProductFormProps {
@@ -35,18 +34,13 @@ interface ProductFormProps {
 
 export function ProductForm({ onSuccess }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
-  const [revenueStreams, setRevenueStreams] = useState<
-    { id: number; name: string; type: string }[]
-  >([]);
 
   const form = useForm<ProductWithPricingPlansFormData>({
     resolver: zodResolver(productWithPricingPlansSchema),
     defaultValues: {
       product: {
-        streamId: 0,
         name: '',
         unitCost: '',
-        entryWeight: '',
         cac: '',
       },
       pricingPlans: [
@@ -69,17 +63,6 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
     name: 'pricingPlans',
   });
 
-  useEffect(() => {
-    async function loadRevenueStreams() {
-      try {
-        const data = await getRevenueStreams();
-        setRevenueStreams(data);
-      } catch (error) {
-        console.error('Failed to load revenue streams:', error);
-      }
-    }
-    loadRevenueStreams();
-  }, []);
 
   async function onSubmit(values: ProductWithPricingPlansFormData) {
     setLoading(true);
@@ -104,34 +87,6 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
         {/* Product Details */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Product Details</h3>
-
-          <FormField
-            control={form.control}
-            name="product.streamId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Revenue Stream</FormLabel>
-                <Select
-                  onValueChange={(value) => field.onChange(Number(value))}
-                  value={field.value?.toString()}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select revenue stream" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {revenueStreams.map((stream) => (
-                      <SelectItem key={stream.id} value={stream.id.toString()}>
-                        {stream.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
 
           <FormField
             control={form.control}
@@ -187,29 +142,6 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
             />
           </div>
 
-          <FormField
-            control={form.control}
-            name="product.entryWeight"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Entry Weight</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="0.25"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="1"
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Percentage of first purchases (0-1, e.g., 0.25 for 25%)
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
 
         {/* Pricing Plans */}

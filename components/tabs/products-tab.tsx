@@ -20,7 +20,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
-import { SimpleProductForm } from '@/components/forms/simple-product-form';
+import { ProductForm } from '@/components/forms/product-form';
 import { getProducts } from '@/lib/actions/product-actions';
 
 export function ProductsTab() {
@@ -89,11 +89,11 @@ export function ProductsTab() {
             <DrawerHeader>
               <DrawerTitle>Create New Product</DrawerTitle>
               <DrawerDescription>
-                Add a new product with basic information.
+                Add a new product with pricing plans and detailed information.
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <SimpleProductForm onSuccess={handleSuccess} />
+              <ProductForm onSuccess={handleSuccess} />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
