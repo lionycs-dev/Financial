@@ -1,30 +1,43 @@
 import { db } from '@/lib/db';
-import { relationships } from '@/lib/db/schema';
+import {
+  RelationshipInsert,
+  relationships,
+  RelationshipSelect,
+} from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
-export interface RelationshipData {
-  sourceType: string;
-  sourceId: number;
-  targetType: string;
-  targetId: number;
-  relationshipType: string;
+export interface RelationshipData extends RelationshipSelect {
   properties: Record<string, string | number>;
 }
 
 export class RelationshipRepository {
-  async getAll() {
-    return await db.select().from(relationships);
+  async getAll(): Promise<RelationshipData[]> {
+    const results = await db.select().from(relationships);
+    return results.map((row) => ({
+      ...row,
+      properties: row.properties as Record<string, string | number>,
+    }));
   }
 
-  async getById(id: number) {
+  async getById(id: number): Promise<RelationshipData | null> {
     const result = await db
       .select()
       .from(relationships)
       .where(eq(relationships.id, id));
-    return result[0] || null;
+    return result[0]
+      ? {
+          ...result[0],
+          properties: result[0].properties as Record<string, string | number>,
+        }
+      : null;
   }
 
-  async getBySourceAndTarget(sourceType: string, sourceId: number, targetType: string, targetId: number) {
+  async getBySourceAndTarget(
+    sourceType: string,
+    sourceId: number,
+    targetType: string,
+    targetId: number
+  ) {
     const result = await db
       .select()
       .from(relationships)
@@ -46,24 +59,30 @@ export class RelationshipRepository {
       .where(eq(relationships.relationshipType, relationshipType));
   }
 
-  async create(data: RelationshipData) {
-    const result = await db.insert(relationships).values({
-      sourceType: data.sourceType,
-      sourceId: data.sourceId,
-      targetType: data.targetType,
-      targetId: data.targetId,
-      relationshipType: data.relationshipType,
-      properties: data.properties,
-    }).returning();
-    return result[0];
+  async create(data: RelationshipInsert): Promise<RelationshipData> {
+    const result = await db
+      .insert(relationships)
+      .values({
+        sourceType: data.sourceType,
+        sourceId: data.sourceId,
+        targetType: data.targetType,
+        targetId: data.targetId,
+        relationshipType: data.relationshipType,
+        properties: data.properties,
+      })
+      .returning();
+    return {
+      ...result[0],
+      properties: result[0].properties as Record<string, string | number>,
+    };
   }
 
   async update(id: number, data: Partial<RelationshipData>) {
     const result = await db
       .update(relationships)
-      .set({ 
-        ...data, 
-        updatedAt: new Date() 
+      .set({
+        ...data,
+        updatedAt: new Date(),
       })
       .where(eq(relationships.id, id))
       .returning();
@@ -78,7 +97,12 @@ export class RelationshipRepository {
     return result[0] || null;
   }
 
-  async deleteBySourceAndTarget(sourceType: string, sourceId: number, targetType: string, targetId: number) {
+  async deleteBySourceAndTarget(
+    sourceType: string,
+    sourceId: number,
+    targetType: string,
+    targetId: number
+  ) {
     const result = await db
       .delete(relationships)
       .where(

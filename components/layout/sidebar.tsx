@@ -34,11 +34,6 @@ const navigation = [
     icon: Users,
   },
   {
-    name: 'Conversion Rules',
-    href: '/conversion-rules',
-    icon: ArrowRightLeft,
-  },
-  {
     name: 'Dependency Graph',
     href: '/dependency-graph',
     icon: GitBranch,

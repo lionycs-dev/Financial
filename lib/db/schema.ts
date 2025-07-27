@@ -59,3 +59,6 @@ export const relationships = pgTable('relationships', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+export type RelationshipSelect = typeof relationships.$inferSelect;
+export type RelationshipInsert = typeof relationships.$inferInsert;
