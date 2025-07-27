@@ -25,7 +25,7 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
         type="target"
         position={Position.Left}
         className="w-3 h-3 bg-green-400 border-2 border-green-600"
-        isConnectable={(connection) => {
+        isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
           return sourceType === 'stream' || sourceType === 'product';
         }}
@@ -34,7 +34,7 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
         type="source"
         position={Position.Right}
         className="w-3 h-3 bg-green-400 border-2 border-green-600"
-        isConnectable={(connection) => {
+        isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
           return targetType === 'clientgroup' || targetType === 'product';
         }}

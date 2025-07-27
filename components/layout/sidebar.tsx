@@ -3,14 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import {
-  Package,
-  Users,
-  Home,
-  TrendingUp,
-  ArrowRightLeft,
-  GitBranch,
-} from 'lucide-react';
+import { Package, Users, Home, TrendingUp, GitBranch } from 'lucide-react';
 
 const navigation = [
   {

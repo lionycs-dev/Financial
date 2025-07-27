@@ -2,7 +2,6 @@
 
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Users } from 'lucide-react';
-import { fa } from 'zod/v4/locales';
 
 interface ClientGroupNodeData {
   id: number;
@@ -28,9 +27,9 @@ export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
         type="target"
         position={Position.Left}
         className="w-3 h-3 bg-purple-400 border-2 border-purple-600"
-        isConnectable={(connection) => {
+        isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
-          return sourceType === 'product' ?? false;
+          return sourceType === 'product';
         }}
       />
 
@@ -38,7 +37,7 @@ export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
         type="source"
         position={Position.Right}
         className="w-3 h-3 bg-purple-400 border-2 border-purple-600"
-        isConnectable={(connection) => {
+        isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
           return targetType === 'product';
         }}

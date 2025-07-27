@@ -22,12 +22,12 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
       {data.description && (
         <div className="text-xs text-gray-600 truncate">{data.description}</div>
       )}
-      
+
       <Handle
         type="source"
         position={Position.Right}
         className="w-3 h-3 bg-blue-400 border-2 border-blue-600"
-        isConnectable={(connection) => {
+        isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
           return targetType === 'product';
         }}
