@@ -28,6 +28,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import React from 'react';
 
 const relationshipSchema = z.object({
   type: z.enum([
@@ -65,6 +66,7 @@ interface RelationshipModalProps {
   sourceId: string;
   targetId: string;
   onSave: (data: RelationshipFormData) => void;
+  editData?: RelationshipFormData | null;
 }
 
 export function RelationshipModal({
@@ -73,6 +75,7 @@ export function RelationshipModal({
   sourceType,
   targetType,
   onSave,
+  editData,
 }: RelationshipModalProps) {
   const [loading, setLoading] = useState(false);
 
@@ -81,13 +84,27 @@ export function RelationshipModal({
 
   const form = useForm<RelationshipFormData>({
     resolver: zodResolver(relationshipSchema),
-    defaultValues: {
+    defaultValues: editData || {
       type: defaultType,
       weight: '',
       probability: '',
       afterMonths: '',
     },
   });
+
+  // Reset form when editData changes
+  React.useEffect(() => {
+    if (editData) {
+      form.reset(editData);
+    } else {
+      form.reset({
+        type: defaultType,
+        weight: '',
+        probability: '',
+        afterMonths: '',
+      });
+    }
+  }, [editData, defaultType, form]);
 
   function getRelationshipType(
     source: string,
@@ -136,9 +153,9 @@ export function RelationshipModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create Relationship</DialogTitle>
+          <DialogTitle>{editData ? 'Edit Relationship' : 'Create Relationship'}</DialogTitle>
           <DialogDescription>
-            Define the relationship properties between {sourceType} and {targetType}.
+            {editData ? 'Modify' : 'Define'} the relationship properties between {sourceType} and {targetType}.
           </DialogDescription>
         </DialogHeader>
 
@@ -252,7 +269,7 @@ export function RelationshipModal({
                 Cancel
               </Button>
               <Button type="submit" disabled={loading || validTypes.length === 0}>
-                {loading ? 'Creating...' : 'Create Relationship'}
+                {loading ? (editData ? 'Updating...' : 'Creating...') : (editData ? 'Update Relationship' : 'Create Relationship')}
               </Button>
             </div>
           </form>

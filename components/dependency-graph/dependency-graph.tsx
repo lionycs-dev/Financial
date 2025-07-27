@@ -24,7 +24,7 @@ import { ConnectionLine } from './connection-line';
 import { getRevenueStreams } from '@/lib/actions/revenue-stream-actions';
 import { getProducts } from '@/lib/actions/product-actions';
 import { getClientGroups } from '@/lib/actions/client-group-actions';
-import { saveRelationship, getRelationships } from '@/lib/actions/relationship-actions';
+import { saveRelationship, getRelationships, deleteRelationship } from '@/lib/actions/relationship-actions';
 
 const nodeTypes = {
   stream: StreamNode,
@@ -46,6 +46,13 @@ function DependencyGraphInner() {
     target: string;
     sourceType: 'stream' | 'product' | 'clientGroup';
     targetType: 'stream' | 'product' | 'clientGroup';
+  } | null>(null);
+  const [editingRelationship, setEditingRelationship] = useState<{
+    id: string;
+    data: {
+      relationship: string;
+      properties: Record<string, string | number>;
+    };
   } | null>(null);
 
   const isValidConnection = useCallback((connection: Connection) => {
@@ -84,6 +91,7 @@ function DependencyGraphInner() {
     [isValidConnection],
   );
 
+
   const handleSaveRelationship = useCallback(
     async (relationshipData: { type: string; weight: string; probability?: string; afterMonths?: string }) => {
       if (connectionData) {
@@ -99,19 +107,86 @@ function DependencyGraphInner() {
           });
 
           if (result.success) {
-            const newEdge: Edge = {
-              id: `${connectionData.source}-${connectionData.target}`,
-              source: connectionData.source,
-              target: connectionData.target,
-              type: 'relationship',
-              data: {
-                relationship: relationshipData.type,
-                properties: relationshipData,
-              },
-            };
-            
-            setEdges((eds) => addEdge(newEdge, eds));
+            if (editingRelationship) {
+              // Update existing edge
+              setEdges((eds) => 
+                eds.map((edge) => 
+                  edge.id === editingRelationship.id 
+                    ? {
+                        ...edge,
+                        data: {
+                          ...edge.data,
+                          relationship: relationshipData.type,
+                          properties: relationshipData,
+                        },
+                      }
+                    : edge
+                )
+              );
+            } else {
+              // Create new edge
+              const newEdge: Edge = {
+                id: `${connectionData.source}-${connectionData.target}`,
+                source: connectionData.source,
+                target: connectionData.target,
+                type: 'relationship',
+                data: {
+                  relationship: relationshipData.type,
+                  properties: relationshipData,
+                  onEdit: (edgeId: string, edgeData: { relationship: string; properties: Record<string, string | number> }) => {
+                    const [sourceId, targetId] = edgeId.split('-').reduce((acc, part, index, arr) => {
+                      if (index < arr.length - 2) {
+                        acc[0] += (acc[0] ? '-' : '') + part;
+                      } else if (index === arr.length - 2) {
+                        acc[1] = part;
+                      } else {
+                        acc[1] += '-' + part;
+                      }
+                      return acc;
+                    }, ['', ''] as [string, string]);
+
+                    const sourceType = sourceId.split('-')[0] as 'stream' | 'product' | 'clientGroup';
+                    const targetType = targetId.split('-')[0] as 'stream' | 'product' | 'clientGroup';
+
+                    setEditingRelationship({ id: edgeId, data: edgeData });
+                    setConnectionData({
+                      source: sourceId,
+                      target: targetId,
+                      sourceType: sourceType === 'clientgroup' ? 'clientGroup' : sourceType,
+                      targetType: targetType === 'clientgroup' ? 'clientGroup' : targetType,
+                    });
+                    setModalOpen(true);
+                  },
+                  onDelete: async (edgeId: string) => {
+                    const [sourceId, targetId] = edgeId.split('-').reduce((acc, part, index, arr) => {
+                      if (index < arr.length - 2) {
+                        acc[0] += (acc[0] ? '-' : '') + part;
+                      } else if (index === arr.length - 2) {
+                        acc[1] = part;
+                      } else {
+                        acc[1] += '-' + part;
+                      }
+                      return acc;
+                    }, ['', ''] as [string, string]);
+
+                    try {
+                      const result = await deleteRelationship(sourceId, targetId);
+                      if (result.success) {
+                        setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
+                      } else {
+                        console.error('Failed to delete relationship:', result.error);
+                      }
+                    } catch (error) {
+                      console.error('Error deleting relationship:', error);
+                    }
+                  },
+                },
+              };
+              
+              setEdges((eds) => addEdge(newEdge, eds));
+            }
             setConnectionData(null);
+            setEditingRelationship(null);
           } else {
             console.error('Failed to save relationship:', result.error);
           }
@@ -120,7 +195,7 @@ function DependencyGraphInner() {
         }
       }
     },
-    [connectionData, setEdges],
+    [connectionData, editingRelationship, setEdges],
   );
 
   // Load data and create nodes/edges
@@ -250,6 +325,53 @@ function DependencyGraphInner() {
                 weight: relationship.weight,
                 probability: relationship.probability,
                 afterMonths: relationship.afterMonths,
+              },
+              onEdit: (edgeId: string, edgeData: { relationship: string; properties: Record<string, string | number> }) => {
+                const [sourceId, targetId] = edgeId.split('-').reduce((acc, part, index, arr) => {
+                  if (index < arr.length - 2) {
+                    acc[0] += (acc[0] ? '-' : '') + part;
+                  } else if (index === arr.length - 2) {
+                    acc[1] = part;
+                  } else {
+                    acc[1] += '-' + part;
+                  }
+                  return acc;
+                }, ['', ''] as [string, string]);
+
+                const sourceType = sourceId.split('-')[0] as 'stream' | 'product' | 'clientGroup';
+                const targetType = targetId.split('-')[0] as 'stream' | 'product' | 'clientGroup';
+
+                setEditingRelationship({ id: edgeId, data: edgeData });
+                setConnectionData({
+                  source: sourceId,
+                  target: targetId,
+                  sourceType: sourceType === 'clientgroup' ? 'clientGroup' : sourceType,
+                  targetType: targetType === 'clientgroup' ? 'clientGroup' : targetType,
+                });
+                setModalOpen(true);
+              },
+              onDelete: async (edgeId: string) => {
+                const [sourceId, targetId] = edgeId.split('-').reduce((acc, part, index, arr) => {
+                  if (index < arr.length - 2) {
+                    acc[0] += (acc[0] ? '-' : '') + part;
+                  } else if (index === arr.length - 2) {
+                    acc[1] = part;
+                  } else {
+                    acc[1] += '-' + part;
+                  }
+                  return acc;
+                }, ['', ''] as [string, string]);
+
+                try {
+                  const result = await deleteRelationship(sourceId, targetId);
+                  if (result.success) {
+                    setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
+                  } else {
+                    console.error('Failed to delete relationship:', result.error);
+                  }
+                } catch (error) {
+                  console.error('Error deleting relationship:', error);
+                }
               },
             },
           });
@@ -433,12 +555,19 @@ function DependencyGraphInner() {
       {connectionData && (
         <RelationshipModal
           open={modalOpen}
-          onOpenChange={setModalOpen}
+          onOpenChange={(open) => {
+            setModalOpen(open);
+            if (!open) {
+              setEditingRelationship(null);
+              setConnectionData(null);
+            }
+          }}
           sourceType={connectionData.sourceType}
           targetType={connectionData.targetType}
           sourceId={connectionData.source}
           targetId={connectionData.target}
           onSave={handleSaveRelationship}
+          editData={editingRelationship?.data?.properties || null}
         />
       )}
     </div>
