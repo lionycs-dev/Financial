@@ -17,16 +17,6 @@ export const revenueTypeEnum = pgEnum('revenue_type', [
   'RevenueOnly',
 ]);
 
-
-// Users table
-export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  name: text('name').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
-
 // Revenue Stream table
 export const revenueStreams = pgTable('revenue_streams', {
   id: serial('id').primaryKey(),
@@ -47,7 +37,6 @@ export const products = pgTable('products', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
-
 
 // Client Group table
 export const clientGroups = pgTable('client_groups', {

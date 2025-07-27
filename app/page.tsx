@@ -1,11 +1,9 @@
-import { getUsers } from '@/lib/actions/user-actions';
 import { getRevenueStreams } from '@/lib/actions/revenue-stream-actions';
 import { getProducts } from '@/lib/actions/product-actions';
 import { getClientGroups } from '@/lib/actions/client-group-actions';
 
 export default async function Home() {
-  const [users, revenueStreams, products, clientGroups] = await Promise.all([
-    getUsers(),
+  const [revenueStreams, products, clientGroups] = await Promise.all([
     getRevenueStreams(),
     getProducts(),
     getClientGroups(),
@@ -98,11 +96,9 @@ export default async function Home() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Users
+                    Conversion Rules
                   </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    {users.length}
-                  </dd>
+                  <dd className="text-lg font-medium text-gray-900">0</dd>
                 </dl>
               </div>
             </div>
