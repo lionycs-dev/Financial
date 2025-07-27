@@ -20,19 +20,29 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
-import { ProductForm } from '@/components/forms/product-form';
+import { SimpleProductForm } from '@/components/forms/simple-product-form';
 import { getProducts } from '@/lib/actions/product-actions';
 
 export function ProductsTab() {
   const [products, setProducts] = useState<
     {
       id: number;
+      streamId: number;
       name: string;
       unitCost: string;
       entryWeight: string;
       cac: string;
-      createdAt: string;
-      revenueStream?: { name: string };
+      createdAt: Date;
+      updatedAt: Date;
+      revenueStream: {
+        id: number;
+        name: string;
+        type:
+          | 'Subscription'
+          | 'RepeatPurchase'
+          | 'SinglePurchase'
+          | 'RevenueOnly';
+      } | null;
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
@@ -71,19 +81,19 @@ export function ProductsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Products</h2>
-        <Drawer open={open} onOpenChange={setOpen}>
+        <Drawer open={open} onOpenChange={setOpen} direction="right">
           <DrawerTrigger asChild>
             <Button>New Product</Button>
           </DrawerTrigger>
-          <DrawerContent className="max-h-[90vh] overflow-y-auto">
+          <DrawerContent className="max-h-[100vh] overflow-y-auto">
             <DrawerHeader>
               <DrawerTitle>Create New Product</DrawerTitle>
               <DrawerDescription>
-                Add a new product with pricing plans.
+                Add a new product with basic information.
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <ProductForm onSuccess={handleSuccess} />
+              <SimpleProductForm onSuccess={handleSuccess} />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
@@ -120,7 +130,7 @@ export function ProductsTab() {
               products.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.revenueStream?.name || '-'}</TableCell>
+                  <TableCell>{product.revenueStream?.name || 'N/A'}</TableCell>
                   <TableCell>${product.unitCost}</TableCell>
                   <TableCell>
                     {(Number(product.entryWeight) * 100).toFixed(1)}%

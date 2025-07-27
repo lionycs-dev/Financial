@@ -106,15 +106,7 @@ export const clientGroupSchema = z.object({
     .refine((val) => !isNaN(Number(val)) && Number(val) >= -1, {
       message: 'ACV growth rate must be greater than -1',
     }),
-  firstPurchaseMix: z.record(z.string(), z.number()).refine(
-    (mix) => {
-      const total = Object.values(mix).reduce((sum, val) => sum + val, 0);
-      return Math.abs(total - 1) < 0.001; // Allow for floating point precision
-    },
-    {
-      message: 'First purchase mix percentages must sum to 1',
-    }
-  ),
+  firstPurchaseMix: z.record(z.string(), z.number()).optional().default({}),
 });
 
 export type ClientGroupFormData = z.infer<typeof clientGroupSchema>;

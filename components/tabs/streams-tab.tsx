@@ -28,9 +28,14 @@ export function StreamsTab() {
     {
       id: number;
       name: string;
-      type: string;
-      description?: string;
-      createdAt: string;
+      type:
+        | 'Subscription'
+        | 'RepeatPurchase'
+        | 'SinglePurchase'
+        | 'RevenueOnly';
+      description: string | null;
+      createdAt: Date;
+      updatedAt: Date;
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
@@ -69,11 +74,11 @@ export function StreamsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Revenue Streams</h2>
-        <Drawer open={open} onOpenChange={setOpen}>
+        <Drawer open={open} onOpenChange={setOpen} direction="right">
           <DrawerTrigger asChild>
             <Button>New Revenue Stream</Button>
           </DrawerTrigger>
-          <DrawerContent>
+          <DrawerContent className="max-h-[100vh] overflow-y-auto">
             <DrawerHeader>
               <DrawerTitle>Create New Revenue Stream</DrawerTitle>
               <DrawerDescription>
@@ -118,7 +123,7 @@ export function StreamsTab() {
                 <TableRow key={stream.id}>
                   <TableCell className="font-medium">{stream.name}</TableCell>
                   <TableCell>{stream.type}</TableCell>
-                  <TableCell>{stream.description || '-'}</TableCell>
+                  <TableCell>{stream.description ?? '-'}</TableCell>
                   <TableCell>
                     {new Date(stream.createdAt).toLocaleDateString()}
                   </TableCell>

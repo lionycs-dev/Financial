@@ -20,7 +20,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
-import { ClientGroupForm } from '@/components/forms/client-group-form';
+import { SimpleClientGroupForm } from '@/components/forms/simple-client-group-form';
 import { getClientGroups } from '@/lib/actions/client-group-actions';
 
 export function ClientGroupsTab() {
@@ -31,8 +31,9 @@ export function ClientGroupsTab() {
       startingCustomers: number;
       churnRate: string;
       acvGrowthRate: string;
-      firstPurchaseMix: Record<string, number>;
-      createdAt: string;
+      firstPurchaseMix: unknown;
+      createdAt: Date;
+      updatedAt: Date;
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
@@ -71,19 +72,19 @@ export function ClientGroupsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Client Groups</h2>
-        <Drawer open={open} onOpenChange={setOpen}>
+        <Drawer open={open} onOpenChange={setOpen} direction="right">
           <DrawerTrigger asChild>
             <Button>New Client Group</Button>
           </DrawerTrigger>
-          <DrawerContent className="max-h-[90vh] overflow-y-auto">
+          <DrawerContent className="max-h-[100vh] overflow-y-auto">
             <DrawerHeader>
               <DrawerTitle>Create New Client Group</DrawerTitle>
               <DrawerDescription>
-                Add a new client group with customer metrics and purchase mix.
+                Add a new client group with basic customer metrics.
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <ClientGroupForm onSuccess={handleSuccess} />
+              <SimpleClientGroupForm onSuccess={handleSuccess} />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
