@@ -35,12 +35,6 @@ const simpleClientGroupSchema = z.object({
         message: 'Churn rate must be between 0 and 1',
       }
     ),
-  acvGrowthRate: z
-    .string()
-    .min(1, 'ACV growth rate is required')
-    .refine((val) => !isNaN(Number(val)) && Number(val) >= -1, {
-      message: 'ACV growth rate must be greater than -1',
-    }),
 });
 
 type SimpleClientGroupFormData = z.infer<typeof simpleClientGroupSchema>;
@@ -52,7 +46,6 @@ interface SimpleClientGroupFormProps {
     name: string;
     startingCustomers: number;
     churnRate: string;
-    acvGrowthRate: string;
   } | null;
 }
 
@@ -70,7 +63,6 @@ export function SimpleClientGroupForm({
       name: initialData?.name || '',
       startingCustomers: initialData?.startingCustomers?.toString() || '',
       churnRate: initialData?.churnRate || '',
-      acvGrowthRate: initialData?.acvGrowthRate || '',
     },
   });
 
@@ -81,7 +73,6 @@ export function SimpleClientGroupForm({
         name: initialData.name,
         startingCustomers: initialData.startingCustomers.toString(),
         churnRate: initialData.churnRate,
-        acvGrowthRate: initialData.acvGrowthRate,
       });
     }
   }, [initialData, form]);
@@ -91,29 +82,36 @@ export function SimpleClientGroupForm({
     setError('');
 
     try {
-      const { createClientGroup, updateClientGroup } = await import('@/lib/actions/client-group-actions');
-      
+      const { createClientGroup, updateClientGroup } = await import(
+        '@/lib/actions/client-group-actions'
+      );
+
       const clientGroupData = {
         name: values.name,
         startingCustomers: parseInt(values.startingCustomers),
         churnRate: values.churnRate,
-        acvGrowthRate: values.acvGrowthRate,
       };
 
-      const result = isEditing 
+      const result = isEditing
         ? await updateClientGroup(initialData!.id, clientGroupData)
         : await createClientGroup(clientGroupData);
-      
+
       if (result.success) {
         if (!isEditing) {
           form.reset();
         }
         onSuccess();
       } else {
-        setError(result.error || `Failed to ${isEditing ? 'update' : 'create'} client group`);
+        setError(
+          result.error ||
+            `Failed to ${isEditing ? 'update' : 'create'} client group`
+        );
       }
     } catch (error) {
-      console.error(`Failed to ${isEditing ? 'update' : 'create'} client group:`, error);
+      console.error(
+        `Failed to ${isEditing ? 'update' : 'create'} client group:`,
+        error
+      );
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -145,11 +143,7 @@ export function SimpleClientGroupForm({
               <FormItem>
                 <FormLabel>Starting Customers</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="100"
-                    {...field}
-                  />
+                  <Input type="number" placeholder="100" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -181,29 +175,6 @@ export function SimpleClientGroupForm({
           />
         </div>
 
-        <FormField
-          control={form.control}
-          name="acvGrowthRate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>ACV Growth Rate</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.10"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Annual contract value growth rate as decimal (e.g., 0.10 for
-                10%)
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
         {error && (
           <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-3">
             {error}
@@ -211,10 +182,13 @@ export function SimpleClientGroupForm({
         )}
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading 
-            ? (isEditing ? 'Updating...' : 'Creating...') 
-            : (isEditing ? 'Update Client Group' : 'Create Client Group')
-          }
+          {loading
+            ? isEditing
+              ? 'Updating...'
+              : 'Creating...'
+            : isEditing
+              ? 'Update Client Group'
+              : 'Create Client Group'}
         </Button>
       </form>
     </Form>

@@ -19,7 +19,6 @@ export class ClientGroupRepository {
     name: string;
     startingCustomers: number;
     churnRate: string;
-    acvGrowthRate: string;
   }) {
     const result = await db.insert(clientGroups).values(data).returning();
     return result[0];
@@ -31,7 +30,6 @@ export class ClientGroupRepository {
       name: string;
       startingCustomers: number;
       churnRate: string;
-      acvGrowthRate: string;
     }>
   ) {
     const result = await db

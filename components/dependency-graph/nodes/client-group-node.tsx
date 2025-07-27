@@ -9,7 +9,6 @@ interface ClientGroupNodeData {
   name: string;
   startingCustomers: number;
   churnRate: string;
-  acvGrowthRate: string;
 }
 
 export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
@@ -23,7 +22,6 @@ export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
       <div className="space-y-1 text-xs text-gray-600">
         <div>Customers: {data.startingCustomers}</div>
         <div>Churn: {(Number(data.churnRate) * 100).toFixed(1)}%</div>
-        <div>ACV Growth: {(Number(data.acvGrowthRate) * 100).toFixed(1)}%</div>
       </div>
 
       <Handle

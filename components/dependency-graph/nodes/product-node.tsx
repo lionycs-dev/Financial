@@ -7,7 +7,6 @@ interface ProductNodeData {
   id: number;
   name: string;
   unitCost: string;
-  cac: string;
 }
 
 export function ProductNode({ data }: NodeProps<ProductNodeData>) {
@@ -20,9 +19,8 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
       <div className="text-sm font-medium text-gray-900 mb-2">{data.name}</div>
       <div className="space-y-1 text-xs text-gray-600">
         <div>Cost: ${data.unitCost}</div>
-        <div>CAC: ${data.cac}</div>
       </div>
-      
+
       <Handle
         type="target"
         position={Position.Left}

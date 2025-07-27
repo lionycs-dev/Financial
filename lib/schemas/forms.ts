@@ -55,16 +55,24 @@ export const productSchema = z.object({
     .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
       message: 'Unit cost must be a valid positive number',
     }),
-  cac: z
-    .string()
-    .min(1, 'CAC is required')
-    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
-      message: 'CAC must be a valid positive number',
-    }),
   pricingPlans: z
     .array(pricingPlanSchema)
     .min(1, 'At least one pricing plan is required'),
 });
+
+export type FrequencyType =
+  | 'Monthly'
+  | 'Quarterly'
+  | 'SemiAnnual'
+  | 'Annual'
+  | 'OneTime'
+  | 'Custom';
+export type InvoiceTimingType =
+  | 'Immediate'
+  | 'Upfront'
+  | 'Net30'
+  | 'Net60'
+  | 'Custom';
 
 export type ProductFormData = z.infer<typeof productSchema>;
 
@@ -93,13 +101,6 @@ export const clientGroupSchema = z.object({
         message: 'Churn rate must be between 0 and 1',
       }
     ),
-  acvGrowthRate: z
-    .string()
-    .min(1, 'ACV growth rate is required')
-    .refine((val) => !isNaN(Number(val)) && Number(val) >= -1, {
-      message: 'ACV growth rate must be greater than -1',
-    }),
-  firstPurchaseMix: z.record(z.string(), z.number()).optional().default({}),
 });
 
 export type ClientGroupFormData = z.infer<typeof clientGroupSchema>;

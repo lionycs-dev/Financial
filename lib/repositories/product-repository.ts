@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { products } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { FrequencyType, InvoiceTimingType } from '../schemas/forms';
 
 export class ProductRepository {
   async getAll() {
@@ -8,23 +9,19 @@ export class ProductRepository {
   }
 
   async getById(id: number) {
-    const result = await db
-      .select()
-      .from(products)
-      .where(eq(products.id, id));
+    const result = await db.select().from(products).where(eq(products.id, id));
     return result[0] || null;
   }
 
   async create(data: {
     name: string;
     unitCost: string;
-    cac: string;
     pricingPlans: Array<{
       name: string;
       priceFormula: string;
-      frequency: string;
+      frequency: FrequencyType;
       customFrequency?: number;
-      invoiceTiming: string;
+      invoiceTiming: InvoiceTimingType;
       customInvoiceTiming?: number;
       leadToCashLag: number;
       escalatorPct?: string;
@@ -39,13 +36,12 @@ export class ProductRepository {
     data: Partial<{
       name: string;
       unitCost: string;
-      cac: string;
       pricingPlans: Array<{
         name: string;
         priceFormula: string;
-        frequency: string;
+        frequency: FrequencyType;
         customFrequency?: number;
-        invoiceTiming: string;
+        invoiceTiming: InvoiceTimingType;
         customInvoiceTiming?: number;
         leadToCashLag: number;
         escalatorPct?: string;

@@ -52,7 +52,6 @@ export function ClientGroupForm({ onSuccess }: ClientGroupFormProps) {
       name: '',
       startingCustomers: 0,
       churnRate: '',
-      acvGrowthRate: '',
     },
   });
 
@@ -218,29 +217,6 @@ export function ClientGroupForm({ onSuccess }: ClientGroupFormProps) {
             )}
           />
         </div>
-
-        <FormField
-          control={form.control}
-          name="acvGrowthRate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>ACV Growth Rate</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.10"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Annual contract value growth rate as decimal (e.g., 0.10 for
-                10%)
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         {/* First Purchase Mix */}
         <div className="space-y-4">

@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  FrequencyType,
+  InvoiceTimingType,
   productSchema,
   type ProductFormData,
 } from '@/lib/schemas/forms';
@@ -34,13 +36,12 @@ interface ProductFormProps {
     id: number;
     name: string;
     unitCost: string;
-    cac: string;
     pricingPlans?: Array<{
       name: string;
       priceFormula: string;
-      frequency: string;
+      frequency: FrequencyType;
       customFrequency?: number;
-      invoiceTiming: string;
+      invoiceTiming: InvoiceTimingType;
       customInvoiceTiming?: number;
       leadToCashLag: number;
       escalatorPct?: string;
@@ -57,19 +58,24 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
     defaultValues: {
       name: initialData?.name || '',
       unitCost: initialData?.unitCost || '',
-      cac: initialData?.cac || '',
-      pricingPlans: initialData?.pricingPlans || [
-        {
-          name: '',
-          priceFormula: '',
-          frequency: 'Monthly',
-          customFrequency: undefined,
-          invoiceTiming: 'Immediate',
-          customInvoiceTiming: undefined,
-          leadToCashLag: 0,
-          escalatorPct: '',
-        },
-      ],
+      pricingPlans: initialData?.pricingPlans
+        ? initialData.pricingPlans.map((plan) => ({
+            ...plan,
+            frequency: plan.frequency as FrequencyType,
+            invoiceTiming: plan.invoiceTiming as InvoiceTimingType,
+          }))
+        : [
+            {
+              name: '',
+              priceFormula: '',
+              frequency: 'Monthly' as FrequencyType,
+              customFrequency: undefined,
+              invoiceTiming: 'Immediate' as InvoiceTimingType,
+              customInvoiceTiming: undefined,
+              leadToCashLag: 0,
+              escalatorPct: '',
+            },
+          ],
     },
   });
 
@@ -84,14 +90,13 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
       form.reset({
         name: initialData.name,
         unitCost: initialData.unitCost,
-        cac: initialData.cac,
         pricingPlans: initialData.pricingPlans || [
           {
             name: '',
             priceFormula: '',
-            frequency: 'Monthly',
+            frequency: 'Monthly' as FrequencyType,
             customFrequency: undefined,
-            invoiceTiming: 'Immediate',
+            invoiceTiming: 'Immediate' as InvoiceTimingType,
             customInvoiceTiming: undefined,
             leadToCashLag: 0,
             escalatorPct: '',
@@ -101,24 +106,29 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
     }
   }, [initialData, form]);
 
-
   async function onSubmit(values: ProductFormData) {
     setLoading(true);
     try {
-      const result = isEditing 
+      const result = isEditing
         ? await updateProduct(initialData!.id, values)
         : await createProduct(values);
-        
+
       if (result.success) {
         if (!isEditing) {
           form.reset();
         }
         onSuccess();
       } else {
-        console.error(`Failed to ${isEditing ? 'update' : 'create'} product:`, result.error);
+        console.error(
+          `Failed to ${isEditing ? 'update' : 'create'} product:`,
+          result.error
+        );
       }
     } catch (error) {
-      console.error(`Failed to ${isEditing ? 'update' : 'create'} product:`, error);
+      console.error(
+        `Failed to ${isEditing ? 'update' : 'create'} product:`,
+        error
+      );
     } finally {
       setLoading(false);
     }
@@ -164,27 +174,7 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="cac"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>CAC</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="0.00"
-                      type="number"
-                      step="0.01"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
-
         </div>
 
         {/* Pricing Plans */}
@@ -369,10 +359,13 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
         </div>
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading 
-            ? (isEditing ? 'Updating...' : 'Creating...') 
-            : (isEditing ? 'Update Product' : 'Create Product')
-          }
+          {loading
+            ? isEditing
+              ? 'Updating...'
+              : 'Creating...'
+            : isEditing
+              ? 'Update Product'
+              : 'Create Product'}
         </Button>
       </form>
     </Form>

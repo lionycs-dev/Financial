@@ -24,11 +24,11 @@ import { ConnectionLine } from './connection-line';
 import { getRevenueStreams } from '@/lib/actions/revenue-stream-actions';
 import { getProducts } from '@/lib/actions/product-actions';
 import { getClientGroups } from '@/lib/actions/client-group-actions';
-import { 
+import {
   getAllUnifiedRelationships,
   createRelationship,
   updateRelationship,
-  deleteRelationship
+  deleteRelationship,
 } from '@/lib/actions/unified-relationship-actions';
 
 // Define nodeTypes and edgeTypes outside the component to prevent recreating them on every render
@@ -45,7 +45,7 @@ const EDGE_TYPES = {
 function DependencyGraphInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  
+
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [connectionData, setConnectionData] = useState<{
@@ -65,19 +65,19 @@ function DependencyGraphInner() {
 
   const isValidConnection = useCallback((connection: Connection) => {
     if (!connection.source || !connection.target) return false;
-    
+
     const sourceType = connection.source.split('-')[0];
     const targetType = connection.target.split('-')[0];
-    
+
     // Define valid connection patterns
     const validConnections = [
       { source: 'stream', target: 'product' }, // Stream can connect to Product
       { source: 'product', target: 'clientgroup' }, // Product can connect to ClientGroup
       { source: 'product', target: 'product' }, // Product can convert to Product
     ];
-    
+
     return validConnections.some(
-      conn => conn.source === sourceType && conn.target === targetType
+      (conn) => conn.source === sourceType && conn.target === targetType
     );
   }, []);
 
@@ -86,10 +86,16 @@ function DependencyGraphInner() {
       if (params.source && params.target && isValidConnection(params)) {
         const rawSourceType = params.source.split('-')[0];
         const rawTargetType = params.target.split('-')[0];
-        
-        const sourceType: 'stream' | 'product' | 'clientGroup' = rawSourceType === 'clientgroup' ? 'clientGroup' : rawSourceType as 'stream' | 'product' | 'clientGroup';
-        const targetType: 'stream' | 'product' | 'clientGroup' = rawTargetType === 'clientgroup' ? 'clientGroup' : rawTargetType as 'stream' | 'product' | 'clientGroup';
-        
+
+        const sourceType: 'stream' | 'product' | 'clientGroup' =
+          rawSourceType === 'clientgroup'
+            ? 'clientGroup'
+            : (rawSourceType as 'stream' | 'product' | 'clientGroup');
+        const targetType: 'stream' | 'product' | 'clientGroup' =
+          rawTargetType === 'clientgroup'
+            ? 'clientGroup'
+            : (rawTargetType as 'stream' | 'product' | 'clientGroup');
+
         setConnectionData({
           source: params.source,
           target: params.target,
@@ -99,20 +105,31 @@ function DependencyGraphInner() {
         setModalOpen(true);
       }
     },
-    [isValidConnection],
+    [isValidConnection]
   );
 
-
   const handleSaveRelationship = useCallback(
-    async (relationshipData: { type: string; weight: string; probability?: string; afterMonths?: string }) => {
+    async (relationshipData: {
+      type: string;
+      weight: string;
+      probability?: string;
+      afterMonths?: string;
+    }) => {
       if (connectionData) {
         try {
           // Unified relationship handling
-          let result: { success: boolean; error?: string; data?: { id: number } } = { success: false, error: 'Unknown error' };
-          
+          let result: {
+            success: boolean;
+            error?: string;
+            data?: { id: number };
+          } = { success: false, error: 'Unknown error' };
+
           // Determine correct source/target based on relationship type
-          let finalSourceType: string, finalSourceId: number, finalTargetType: string, finalTargetId: number;
-          
+          let finalSourceType: string,
+            finalSourceId: number,
+            finalTargetType: string,
+            finalTargetId: number;
+
           if (relationshipData.type === 'clientgroup_to_product') {
             // For clientgroup_to_product, clientgroup is ALWAYS source, product is ALWAYS target
             if (connectionData.sourceType === 'clientGroup') {
@@ -129,12 +146,18 @@ function DependencyGraphInner() {
             }
           } else {
             // For other relationship types, use the connection direction as-is
-            finalSourceType = connectionData.sourceType === 'clientGroup' ? 'clientGroup' : connectionData.sourceType;
-            finalTargetType = connectionData.targetType === 'clientGroup' ? 'clientGroup' : connectionData.targetType;
+            finalSourceType =
+              connectionData.sourceType === 'clientGroup'
+                ? 'clientGroup'
+                : connectionData.sourceType;
+            finalTargetType =
+              connectionData.targetType === 'clientGroup'
+                ? 'clientGroup'
+                : connectionData.targetType;
             finalSourceId = parseInt(connectionData.source.split('-')[1]);
             finalTargetId = parseInt(connectionData.target.split('-')[1]);
           }
-          
+
           if (editingRelationship && editingRelationship.data?.relationshipId) {
             // Update existing relationship
             result = await updateRelationship(
@@ -156,9 +179,9 @@ function DependencyGraphInner() {
           if (result.success) {
             if (editingRelationship) {
               // Update existing edge
-              setEdges((eds) => 
-                eds.map((edge) => 
-                  edge.id === editingRelationship.id 
+              setEdges((eds) =>
+                eds.map((edge) =>
+                  edge.id === editingRelationship.id
                     ? {
                         ...edge,
                         data: {
@@ -182,8 +205,17 @@ function DependencyGraphInner() {
                     relationship: relationshipData.type,
                     properties: relationshipData,
                     relationshipId: result.data.id,
-                    onEdit: (edgeId: string, edgeData: { relationship: string; properties: Record<string, string | number> }) => {
-                      setEditingRelationship({ id: edgeId, data: { ...edgeData, relationshipId: result.data?.id } });
+                    onEdit: (
+                      edgeId: string,
+                      edgeData: {
+                        relationship: string;
+                        properties: Record<string, string | number>;
+                      }
+                    ) => {
+                      setEditingRelationship({
+                        id: edgeId,
+                        data: { ...edgeData, relationshipId: result.data?.id },
+                      });
                       setConnectionData({
                         source: connectionData.source,
                         target: connectionData.target,
@@ -195,12 +227,18 @@ function DependencyGraphInner() {
                     onDelete: async (edgeId: string) => {
                       try {
                         const relationshipId = parseInt(edgeId.split('-')[1]);
-                        const deleteResult = await deleteRelationship(relationshipId);
-                        
+                        const deleteResult =
+                          await deleteRelationship(relationshipId);
+
                         if (deleteResult.success) {
-                          setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
+                          setEdges((eds) =>
+                            eds.filter((edge) => edge.id !== edgeId)
+                          );
                         } else {
-                          console.error('Failed to delete relationship:', deleteResult.error);
+                          console.error(
+                            'Failed to delete relationship:',
+                            deleteResult.error
+                          );
                         }
                       } catch (error) {
                         console.error('Error deleting relationship:', error);
@@ -208,7 +246,7 @@ function DependencyGraphInner() {
                     },
                   },
                 };
-                
+
                 setEdges((eds) => addEdge(newEdge, eds));
               }
             }
@@ -222,20 +260,20 @@ function DependencyGraphInner() {
         }
       }
     },
-    [connectionData, editingRelationship, setEdges],
+    [connectionData, editingRelationship, setEdges]
   );
 
   // Load data and create nodes/edges
   useEffect(() => {
     async function loadData() {
       try {
-        const [streams, products, clientGroups, relationships] = await Promise.all([
-          getRevenueStreams(),
-          getProducts(),
-          getClientGroups(),
-          getAllUnifiedRelationships(),
-        ]);
-
+        const [streams, products, clientGroups, relationships] =
+          await Promise.all([
+            getRevenueStreams(),
+            getProducts(),
+            getClientGroups(),
+            getAllUnifiedRelationships(),
+          ]);
 
         const newNodes: Node[] = [];
         const newEdges: Edge[] = [];
@@ -254,7 +292,7 @@ function DependencyGraphInner() {
             id: `stream-${stream.id}`,
             type: 'stream',
             position: { x: START_X, y },
-            data: { 
+            data: {
               id: stream.id,
               name: stream.name,
               type: stream.type,
@@ -266,7 +304,7 @@ function DependencyGraphInner() {
         // Column 2: Products (middle) - simple grid layout
         products.forEach((product, index) => {
           const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
-          
+
           newNodes.push({
             id: `product-${product.id}`,
             type: 'product',
@@ -275,17 +313,19 @@ function DependencyGraphInner() {
               id: product.id,
               name: product.name,
               unitCost: product.unitCost,
-              cac: product.cac,
             },
           });
         });
 
-        const productYOffset = START_Y + products.length * (NODE_HEIGHT + VERTICAL_SPACING);
+        const productYOffset =
+          START_Y + products.length * (NODE_HEIGHT + VERTICAL_SPACING);
 
         // Column 3: Client Groups (rightmost) - distributed evenly
-        const clientGroupSpacing = Math.max(NODE_HEIGHT + VERTICAL_SPACING, 
-          productYOffset / Math.max(clientGroups.length, 1));
-        
+        const clientGroupSpacing = Math.max(
+          NODE_HEIGHT + VERTICAL_SPACING,
+          productYOffset / Math.max(clientGroups.length, 1)
+        );
+
         clientGroups.forEach((group, index) => {
           const y = START_Y + index * clientGroupSpacing;
           newNodes.push({
@@ -297,7 +337,6 @@ function DependencyGraphInner() {
               name: group.name,
               startingCustomers: group.startingCustomers,
               churnRate: group.churnRate,
-              acvGrowthRate: group.acvGrowthRate,
             },
           });
         });
@@ -305,13 +344,18 @@ function DependencyGraphInner() {
         // Add all relationships from database
         relationships.forEach((relationship) => {
           // Convert database sourceType/targetType to match node IDs
-          const sourceNodeType = relationship.sourceType === 'clientGroup' ? 'clientgroup' : relationship.sourceType;
-          const targetNodeType = relationship.targetType === 'clientGroup' ? 'clientgroup' : relationship.targetType;
-          
+          const sourceNodeType =
+            relationship.sourceType === 'clientGroup'
+              ? 'clientgroup'
+              : relationship.sourceType;
+          const targetNodeType =
+            relationship.targetType === 'clientGroup'
+              ? 'clientgroup'
+              : relationship.targetType;
+
           const sourceId = `${sourceNodeType}-${relationship.sourceId}`;
           const targetId = `${targetNodeType}-${relationship.targetId}`;
-          
-          
+
           newEdges.push({
             id: `relationship-${relationship.id}`,
             source: sourceId,
@@ -321,10 +365,28 @@ function DependencyGraphInner() {
               relationship: relationship.relationshipType,
               properties: relationship.properties,
               relationshipId: relationship.id,
-              onEdit: (edgeId: string, edgeData: { relationship: string; properties: Record<string, string | number> }) => {
+              onEdit: (
+                edgeId: string,
+                edgeData: {
+                  relationship: string;
+                  properties: Record<string, string | number>;
+                }
+              ) => {
                 // Convert database types to component types for modal
-                const sourceType = relationship.sourceType === 'clientGroup' ? 'clientGroup' : relationship.sourceType as 'stream' | 'product' | 'clientGroup';
-                const targetType = relationship.targetType === 'clientGroup' ? 'clientGroup' : relationship.targetType as 'stream' | 'product' | 'clientGroup';
+                const sourceType =
+                  relationship.sourceType === 'clientGroup'
+                    ? 'clientGroup'
+                    : (relationship.sourceType as
+                        | 'stream'
+                        | 'product'
+                        | 'clientGroup');
+                const targetType =
+                  relationship.targetType === 'clientGroup'
+                    ? 'clientGroup'
+                    : (relationship.targetType as
+                        | 'stream'
+                        | 'product'
+                        | 'clientGroup');
 
                 setEditingRelationship({ id: edgeId, data: edgeData });
                 setConnectionData({
@@ -339,18 +401,21 @@ function DependencyGraphInner() {
                 try {
                   // Extract relationship ID from edge ID (format: relationship-{id})
                   const relationshipId = parseInt(edgeId.split('-')[1]);
-                  
+
                   if (isNaN(relationshipId)) {
                     console.error('Invalid relationship ID in edge:', edgeId);
                     return;
                   }
-                  
+
                   const result = await deleteRelationship(relationshipId);
-                  
+
                   if (result.success) {
                     setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
                   } else {
-                    console.error('Failed to delete relationship:', result.error);
+                    console.error(
+                      'Failed to delete relationship:',
+                      result.error
+                    );
                   }
                 } catch (error) {
                   console.error('Error deleting relationship:', error);
@@ -360,7 +425,6 @@ function DependencyGraphInner() {
           });
         });
 
-        
         setNodes(newNodes);
         setEdges(newEdges);
       } catch (error) {
@@ -382,12 +446,14 @@ function DependencyGraphInner() {
           try {
             const [streams, products, clientGroups] = await Promise.all([
               getRevenueStreams(),
-              getProducts(), 
+              getProducts(),
               getClientGroups(),
             ]);
 
             const newNodes: Node[] = [];
-            const existingCustomEdges = edges.filter(e => e.data?.relationship !== 'belongs_to');
+            const existingCustomEdges = edges.filter(
+              (e) => e.data?.relationship !== 'belongs_to'
+            );
 
             // Apply the same layout algorithm for auto-refresh
             const COLUMN_WIDTH = 350;
@@ -403,7 +469,7 @@ function DependencyGraphInner() {
                 id: `stream-${stream.id}`,
                 type: 'stream',
                 position: { x: START_X, y },
-                data: { 
+                data: {
                   id: stream.id,
                   name: stream.name,
                   type: stream.type,
@@ -415,7 +481,7 @@ function DependencyGraphInner() {
             // Column 2: Products - simple grid layout
             products.forEach((product, index) => {
               const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
-              
+
               newNodes.push({
                 id: `product-${product.id}`,
                 type: 'product',
@@ -424,17 +490,19 @@ function DependencyGraphInner() {
                   id: product.id,
                   name: product.name,
                   unitCost: product.unitCost,
-                  cac: product.cac,
                 },
               });
             });
 
-            const productYOffset = START_Y + products.length * (NODE_HEIGHT + VERTICAL_SPACING);
+            const productYOffset =
+              START_Y + products.length * (NODE_HEIGHT + VERTICAL_SPACING);
 
             // Column 3: Client Groups
-            const clientGroupSpacing = Math.max(NODE_HEIGHT + VERTICAL_SPACING, 
-              productYOffset / Math.max(clientGroups.length, 1));
-            
+            const clientGroupSpacing = Math.max(
+              NODE_HEIGHT + VERTICAL_SPACING,
+              productYOffset / Math.max(clientGroups.length, 1)
+            );
+
             clientGroups.forEach((group, index) => {
               const y = START_Y + index * clientGroupSpacing;
               newNodes.push({
@@ -446,7 +514,6 @@ function DependencyGraphInner() {
                   name: group.name,
                   startingCustomers: group.startingCustomers,
                   churnRate: group.churnRate,
-                  acvGrowthRate: group.acvGrowthRate,
                 },
               });
             });
@@ -459,13 +526,14 @@ function DependencyGraphInner() {
             console.error('Failed to reload dependency graph data:', error);
           }
         }
-        
+
         reloadData();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [edges, loading, setNodes, setEdges]);
 
   if (loading) {
@@ -481,7 +549,8 @@ function DependencyGraphInner() {
       <div className="p-4 border-b bg-white">
         <h1 className="text-2xl font-bold">Dependency Graph</h1>
         <p className="text-muted-foreground">
-          Visual representation of relationships between Revenue Streams, Products, and Client Groups
+          Visual representation of relationships between Revenue Streams,
+          Products, and Client Groups
         </p>
       </div>
       <div className="h-[calc(100%-80px)]">
@@ -519,12 +588,25 @@ function DependencyGraphInner() {
           sourceId={connectionData.source}
           targetId={connectionData.target}
           onSave={handleSaveRelationship}
-          editData={editingRelationship?.data?.properties ? {
-            type: editingRelationship.data.relationship as 'product_to_stream' | 'clientgroup_to_product' | 'product_conversion',
-            weight: editingRelationship.data.properties.weight?.toString() || '',
-            probability: editingRelationship.data.properties.probability?.toString() || '',
-            afterMonths: editingRelationship.data.properties.afterMonths?.toString() || '',
-          } : null}
+          editData={
+            editingRelationship?.data?.properties
+              ? {
+                  type: editingRelationship.data.relationship as
+                    | 'product_to_stream'
+                    | 'clientgroup_to_product'
+                    | 'product_conversion',
+                  weight:
+                    editingRelationship.data.properties.weight?.toString() ||
+                    '',
+                  probability:
+                    editingRelationship.data.properties.probability?.toString() ||
+                    '',
+                  afterMonths:
+                    editingRelationship.data.properties.afterMonths?.toString() ||
+                    '',
+                }
+              : null
+          }
         />
       )}
     </div>

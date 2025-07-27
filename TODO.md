@@ -1,0 +1,5 @@
+- [ ] Remove table conversion rules
+- [ ] Un prodotto appartiene solo ad 1 revenue stream
+- [ ] Relazione prodotto/rev stream a cliente o gruppo di clienti
+- [ ] Nel flow di base 3 gruppi di clienti che possono essere linkati al rev-stream
+- [ ] Rimuovere CAC da prodotto

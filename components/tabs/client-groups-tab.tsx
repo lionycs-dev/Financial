@@ -30,7 +30,6 @@ export function ClientGroupsTab() {
       name: string;
       startingCustomers: number;
       churnRate: string;
-      acvGrowthRate: string;
       createdAt: Date;
       updatedAt: Date;
     }[]
@@ -42,7 +41,6 @@ export function ClientGroupsTab() {
     name: string;
     startingCustomers: number;
     churnRate: string;
-    acvGrowthRate: string;
   } | null>(null);
 
   useEffect(() => {
@@ -71,13 +69,12 @@ export function ClientGroupsTab() {
     }
   };
 
-  const handleEditClientGroup = (group: typeof clientGroups[0]) => {
+  const handleEditClientGroup = (group: (typeof clientGroups)[0]) => {
     setEditingClientGroup({
       id: group.id,
       name: group.name,
       startingCustomers: group.startingCustomers,
       churnRate: group.churnRate,
-      acvGrowthRate: group.acvGrowthRate,
     });
     setOpen(true);
   };
@@ -95,29 +92,37 @@ export function ClientGroupsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Client Groups</h2>
-        <Drawer open={open} onOpenChange={(open) => {
-          setOpen(open);
-          if (!open) {
-            setEditingClientGroup(null);
-          }
-        }} direction="right">
+        <Drawer
+          open={open}
+          onOpenChange={(open) => {
+            setOpen(open);
+            if (!open) {
+              setEditingClientGroup(null);
+            }
+          }}
+          direction="right"
+        >
           <DrawerTrigger asChild>
             <Button onClick={handleNewClientGroup}>New Client Group</Button>
           </DrawerTrigger>
           <DrawerContent className="max-h-[100vh] overflow-y-auto">
             <DrawerHeader>
               <DrawerTitle>
-                {editingClientGroup ? 'Edit Client Group' : 'Create New Client Group'}
+                {editingClientGroup
+                  ? 'Edit Client Group'
+                  : 'Create New Client Group'}
               </DrawerTitle>
               <DrawerDescription>
-                {editingClientGroup 
-                  ? 'Update the client group details.' 
-                  : 'Add a new client group with basic customer metrics.'
-                }
+                {editingClientGroup
+                  ? 'Update the client group details.'
+                  : 'Add a new client group with basic customer metrics.'}
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <SimpleClientGroupForm onSuccess={handleSuccess} initialData={editingClientGroup} />
+              <SimpleClientGroupForm
+                onSuccess={handleSuccess}
+                initialData={editingClientGroup}
+              />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
@@ -135,7 +140,6 @@ export function ClientGroupsTab() {
               <TableHead>Name</TableHead>
               <TableHead>Starting Customers</TableHead>
               <TableHead>Churn Rate</TableHead>
-              <TableHead>ACV Growth Rate</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
@@ -151,8 +155,8 @@ export function ClientGroupsTab() {
               </TableRow>
             ) : (
               clientGroups.map((group) => (
-                <TableRow 
-                  key={group.id} 
+                <TableRow
+                  key={group.id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleEditClientGroup(group)}
                 >
@@ -162,9 +166,6 @@ export function ClientGroupsTab() {
                   </TableCell>
                   <TableCell>
                     {(Number(group.churnRate) * 100).toFixed(1)}%
-                  </TableCell>
-                  <TableCell>
-                    {(Number(group.acvGrowthRate) * 100).toFixed(1)}%
                   </TableCell>
                   <TableCell>
                     {new Date(group.createdAt).toLocaleDateString()}

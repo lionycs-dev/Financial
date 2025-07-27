@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/drawer';
 import { ProductForm } from '@/components/forms/product-form';
 import { getProducts } from '@/lib/actions/product-actions';
+import { FrequencyType, InvoiceTimingType } from '@/lib/schemas/forms';
 
 export function ProductsTab() {
   const [products, setProducts] = useState<
@@ -29,7 +30,6 @@ export function ProductsTab() {
       id: number;
       name: string;
       unitCost: string;
-      cac: string;
       pricingPlans: Array<{
         name: string;
         priceFormula: string;
@@ -50,13 +50,12 @@ export function ProductsTab() {
     id: number;
     name: string;
     unitCost: string;
-    cac: string;
     pricingPlans?: Array<{
       name: string;
       priceFormula: string;
-      frequency: string;
+      frequency: FrequencyType;
       customFrequency?: number;
-      invoiceTiming: string;
+      invoiceTiming: InvoiceTimingType;
       customInvoiceTiming?: number;
       leadToCashLag: number;
       escalatorPct?: string;
@@ -89,12 +88,11 @@ export function ProductsTab() {
     }
   };
 
-  const handleEditProduct = (product: typeof products[0]) => {
+  const handleEditProduct = (product: (typeof products)[0]) => {
     setEditingProduct({
       id: product.id,
       name: product.name,
       unitCost: product.unitCost,
-      cac: product.cac,
       pricingPlans: product.pricingPlans,
     });
     setOpen(true);
@@ -113,12 +111,16 @@ export function ProductsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Products</h2>
-        <Drawer open={open} onOpenChange={(open) => {
-          setOpen(open);
-          if (!open) {
-            setEditingProduct(null);
-          }
-        }} direction="right">
+        <Drawer
+          open={open}
+          onOpenChange={(open) => {
+            setOpen(open);
+            if (!open) {
+              setEditingProduct(null);
+            }
+          }}
+          direction="right"
+        >
           <DrawerTrigger asChild>
             <Button onClick={handleNewProduct}>New Product</Button>
           </DrawerTrigger>
@@ -128,14 +130,16 @@ export function ProductsTab() {
                 {editingProduct ? 'Edit Product' : 'Create New Product'}
               </DrawerTitle>
               <DrawerDescription>
-                {editingProduct 
-                  ? 'Update the product details and pricing plans.' 
-                  : 'Add a new product with pricing plans and detailed information.'
-                }
+                {editingProduct
+                  ? 'Update the product details and pricing plans.'
+                  : 'Add a new product with pricing plans and detailed information.'}
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <ProductForm onSuccess={handleSuccess} initialData={editingProduct} />
+              <ProductForm
+                onSuccess={handleSuccess}
+                initialData={editingProduct}
+              />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
@@ -152,7 +156,6 @@ export function ProductsTab() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Unit Cost</TableHead>
-              <TableHead>CAC</TableHead>
               <TableHead>Pricing Plans</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
@@ -169,14 +172,13 @@ export function ProductsTab() {
               </TableRow>
             ) : (
               products.map((product) => (
-                <TableRow 
-                  key={product.id} 
+                <TableRow
+                  key={product.id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleEditProduct(product)}
                 >
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>${product.unitCost}</TableCell>
-                  <TableCell>${product.cac}</TableCell>
                   <TableCell>
                     <div className="space-y-1">
                       {product.pricingPlans?.length > 0 ? (
@@ -189,7 +191,9 @@ export function ProductsTab() {
                           </div>
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-sm">No plans</span>
+                        <span className="text-muted-foreground text-sm">
+                          No plans
+                        </span>
                       )}
                     </div>
                   </TableCell>
