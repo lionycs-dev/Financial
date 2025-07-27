@@ -112,6 +112,7 @@ export function RelationshipModal({
   ): 'product_to_stream' | 'clientgroup_to_product' | 'product_conversion' {
     if (source === 'stream' && target === 'product') return 'product_to_stream';
     if (source === 'product' && target === 'clientGroup') return 'clientgroup_to_product';
+    if (source === 'clientGroup' && target === 'product') return 'clientgroup_to_product';
     if (source === 'product' && target === 'product') return 'product_conversion';
     return 'product_to_stream'; // fallback
   }
@@ -124,6 +125,11 @@ export function RelationshipModal({
     }
     
     if (source === 'product' && target === 'clientGroup') {
+      validTypes.push({ value: 'clientgroup_to_product', label: 'Client Group purchases Product' });
+    }
+    
+    // Support both directions for clientGroup <-> product relationships
+    if (source === 'clientGroup' && target === 'product') {
       validTypes.push({ value: 'clientgroup_to_product', label: 'Client Group purchases Product' });
     }
     

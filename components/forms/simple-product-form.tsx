@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -25,15 +24,6 @@ const simpleProductSchema = z.object({
     .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
       message: 'Unit cost must be a valid positive number',
     }),
-  entryWeight: z
-    .string()
-    .min(1, 'Entry weight is required')
-    .refine(
-      (val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 1,
-      {
-        message: 'Entry weight must be between 0 and 1',
-      }
-    ),
   cac: z
     .string()
     .min(1, 'CAC is required')
@@ -57,7 +47,6 @@ export function SimpleProductForm({ onSuccess }: SimpleProductFormProps) {
     defaultValues: {
       name: '',
       unitCost: '',
-      entryWeight: '',
       cac: '',
     },
   });
@@ -71,10 +60,8 @@ export function SimpleProductForm({ onSuccess }: SimpleProductFormProps) {
       
       // Convert string values to numbers for the database
       const productData = {
-        streamId: 1, // Default revenue stream ID - will be configurable later
         name: values.name,
         unitCost: values.unitCost,
-        entryWeight: values.entryWeight,
         cac: values.cac,
       };
 
@@ -151,29 +138,6 @@ export function SimpleProductForm({ onSuccess }: SimpleProductFormProps) {
           />
         </div>
 
-        <FormField
-          control={form.control}
-          name="entryWeight"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Entry Weight</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="0.25"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="1"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Percentage of first purchases (0-1, e.g., 0.25 for 25%)
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         {error && (
           <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-3">

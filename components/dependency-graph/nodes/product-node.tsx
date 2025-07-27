@@ -7,9 +7,7 @@ interface ProductNodeData {
   id: number;
   name: string;
   unitCost: string;
-  entryWeight: string;
   cac: string;
-  streamId: number;
 }
 
 export function ProductNode({ data }: NodeProps<ProductNodeData>) {
@@ -22,7 +20,6 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
       <div className="text-sm font-medium text-gray-900 mb-2">{data.name}</div>
       <div className="space-y-1 text-xs text-gray-600">
         <div>Cost: ${data.unitCost}</div>
-        <div>Entry Weight: {(Number(data.entryWeight) * 100).toFixed(1)}%</div>
         <div>CAC: ${data.cac}</div>
       </div>
       

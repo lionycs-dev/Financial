@@ -24,21 +24,28 @@ import { ConnectionLine } from './connection-line';
 import { getRevenueStreams } from '@/lib/actions/revenue-stream-actions';
 import { getProducts } from '@/lib/actions/product-actions';
 import { getClientGroups } from '@/lib/actions/client-group-actions';
-import { saveRelationship, getRelationships, deleteRelationship } from '@/lib/actions/relationship-actions';
+import { 
+  getAllUnifiedRelationships,
+  createRelationship,
+  updateRelationship,
+  deleteRelationship
+} from '@/lib/actions/unified-relationship-actions';
 
-const nodeTypes = {
+// Define nodeTypes and edgeTypes outside the component to prevent recreating them on every render
+const NODE_TYPES = {
   stream: StreamNode,
   product: ProductNode,
   clientGroup: ClientGroupNode,
-};
+} as const;
 
-const edgeTypes = {
+const EDGE_TYPES = {
   relationship: RelationshipEdge,
-};
+} as const;
 
 function DependencyGraphInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [connectionData, setConnectionData] = useState<{
@@ -52,6 +59,7 @@ function DependencyGraphInner() {
     data: {
       relationship: string;
       properties: Record<string, string | number>;
+      relationshipId?: number;
     };
   } | null>(null);
 
@@ -76,14 +84,17 @@ function DependencyGraphInner() {
   const onConnect = useCallback(
     (params: Connection) => {
       if (params.source && params.target && isValidConnection(params)) {
-        const sourceType = params.source.split('-')[0] as 'stream' | 'product' | 'clientGroup';
-        const targetType = params.target.split('-')[0] as 'stream' | 'product' | 'clientGroup';
+        const rawSourceType = params.source.split('-')[0];
+        const rawTargetType = params.target.split('-')[0];
+        
+        const sourceType: 'stream' | 'product' | 'clientGroup' = rawSourceType === 'clientgroup' ? 'clientGroup' : rawSourceType as 'stream' | 'product' | 'clientGroup';
+        const targetType: 'stream' | 'product' | 'clientGroup' = rawTargetType === 'clientgroup' ? 'clientGroup' : rawTargetType as 'stream' | 'product' | 'clientGroup';
         
         setConnectionData({
           source: params.source,
           target: params.target,
-          sourceType: sourceType === 'clientgroup' ? 'clientGroup' : sourceType,
-          targetType: targetType === 'clientgroup' ? 'clientGroup' : targetType,
+          sourceType,
+          targetType,
         });
         setModalOpen(true);
       }
@@ -96,15 +107,51 @@ function DependencyGraphInner() {
     async (relationshipData: { type: string; weight: string; probability?: string; afterMonths?: string }) => {
       if (connectionData) {
         try {
-          // Auto-save to backend
-          const result = await saveRelationship({
-            type: relationshipData.type as 'product_to_stream' | 'clientgroup_to_product' | 'product_conversion',
-            sourceId: connectionData.source,
-            targetId: connectionData.target,
-            weight: relationshipData.weight,
-            probability: relationshipData.probability,
-            afterMonths: relationshipData.afterMonths,
-          });
+          // Unified relationship handling
+          let result: { success: boolean; error?: string; data?: { id: number } } = { success: false, error: 'Unknown error' };
+          
+          // Determine correct source/target based on relationship type
+          let finalSourceType: string, finalSourceId: number, finalTargetType: string, finalTargetId: number;
+          
+          if (relationshipData.type === 'clientgroup_to_product') {
+            // For clientgroup_to_product, clientgroup is ALWAYS source, product is ALWAYS target
+            if (connectionData.sourceType === 'clientGroup') {
+              finalSourceType = 'clientGroup';
+              finalSourceId = parseInt(connectionData.source.split('-')[1]);
+              finalTargetType = 'product';
+              finalTargetId = parseInt(connectionData.target.split('-')[1]);
+            } else {
+              // User dragged from product to clientgroup, reverse it
+              finalSourceType = 'clientGroup';
+              finalSourceId = parseInt(connectionData.target.split('-')[1]);
+              finalTargetType = 'product';
+              finalTargetId = parseInt(connectionData.source.split('-')[1]);
+            }
+          } else {
+            // For other relationship types, use the connection direction as-is
+            finalSourceType = connectionData.sourceType === 'clientGroup' ? 'clientGroup' : connectionData.sourceType;
+            finalTargetType = connectionData.targetType === 'clientGroup' ? 'clientGroup' : connectionData.targetType;
+            finalSourceId = parseInt(connectionData.source.split('-')[1]);
+            finalTargetId = parseInt(connectionData.target.split('-')[1]);
+          }
+          
+          if (editingRelationship && editingRelationship.data?.relationshipId) {
+            // Update existing relationship
+            result = await updateRelationship(
+              editingRelationship.data.relationshipId,
+              relationshipData
+            );
+          } else {
+            // Create new relationship
+            result = await createRelationship({
+              sourceType: finalSourceType,
+              sourceId: finalSourceId,
+              targetType: finalTargetType,
+              targetId: finalTargetId,
+              relationshipType: relationshipData.type,
+              properties: relationshipData,
+            });
+          }
 
           if (result.success) {
             if (editingRelationship) {
@@ -124,66 +171,46 @@ function DependencyGraphInner() {
                 )
               );
             } else {
-              // Create new edge
-              const newEdge: Edge = {
-                id: `${connectionData.source}-${connectionData.target}`,
-                source: connectionData.source,
-                target: connectionData.target,
-                type: 'relationship',
-                data: {
-                  relationship: relationshipData.type,
-                  properties: relationshipData,
-                  onEdit: (edgeId: string, edgeData: { relationship: string; properties: Record<string, string | number> }) => {
-                    const [sourceId, targetId] = edgeId.split('-').reduce((acc, part, index, arr) => {
-                      if (index < arr.length - 2) {
-                        acc[0] += (acc[0] ? '-' : '') + part;
-                      } else if (index === arr.length - 2) {
-                        acc[1] = part;
-                      } else {
-                        acc[1] += '-' + part;
+              // Create new edge with the relationship ID from the server response
+              if (result.data) {
+                const newEdge: Edge = {
+                  id: `relationship-${result.data.id}`,
+                  source: connectionData.source,
+                  target: connectionData.target,
+                  type: 'relationship',
+                  data: {
+                    relationship: relationshipData.type,
+                    properties: relationshipData,
+                    relationshipId: result.data.id,
+                    onEdit: (edgeId: string, edgeData: { relationship: string; properties: Record<string, string | number> }) => {
+                      setEditingRelationship({ id: edgeId, data: { ...edgeData, relationshipId: result.data?.id } });
+                      setConnectionData({
+                        source: connectionData.source,
+                        target: connectionData.target,
+                        sourceType: connectionData.sourceType,
+                        targetType: connectionData.targetType,
+                      });
+                      setModalOpen(true);
+                    },
+                    onDelete: async (edgeId: string) => {
+                      try {
+                        const relationshipId = parseInt(edgeId.split('-')[1]);
+                        const deleteResult = await deleteRelationship(relationshipId);
+                        
+                        if (deleteResult.success) {
+                          setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
+                        } else {
+                          console.error('Failed to delete relationship:', deleteResult.error);
+                        }
+                      } catch (error) {
+                        console.error('Error deleting relationship:', error);
                       }
-                      return acc;
-                    }, ['', ''] as [string, string]);
-
-                    const sourceType = sourceId.split('-')[0] as 'stream' | 'product' | 'clientGroup';
-                    const targetType = targetId.split('-')[0] as 'stream' | 'product' | 'clientGroup';
-
-                    setEditingRelationship({ id: edgeId, data: edgeData });
-                    setConnectionData({
-                      source: sourceId,
-                      target: targetId,
-                      sourceType: sourceType === 'clientgroup' ? 'clientGroup' : sourceType,
-                      targetType: targetType === 'clientgroup' ? 'clientGroup' : targetType,
-                    });
-                    setModalOpen(true);
+                    },
                   },
-                  onDelete: async (edgeId: string) => {
-                    const [sourceId, targetId] = edgeId.split('-').reduce((acc, part, index, arr) => {
-                      if (index < arr.length - 2) {
-                        acc[0] += (acc[0] ? '-' : '') + part;
-                      } else if (index === arr.length - 2) {
-                        acc[1] = part;
-                      } else {
-                        acc[1] += '-' + part;
-                      }
-                      return acc;
-                    }, ['', ''] as [string, string]);
-
-                    try {
-                      const result = await deleteRelationship(sourceId, targetId);
-                      if (result.success) {
-                        setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
-                      } else {
-                        console.error('Failed to delete relationship:', result.error);
-                      }
-                    } catch (error) {
-                      console.error('Error deleting relationship:', error);
-                    }
-                  },
-                },
-              };
-              
-              setEdges((eds) => addEdge(newEdge, eds));
+                };
+                
+                setEdges((eds) => addEdge(newEdge, eds));
+              }
             }
             setConnectionData(null);
             setEditingRelationship(null);
@@ -202,12 +229,13 @@ function DependencyGraphInner() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [streams, products, clientGroups, savedRelationships] = await Promise.all([
+        const [streams, products, clientGroups, relationships] = await Promise.all([
           getRevenueStreams(),
           getProducts(),
           getClientGroups(),
-          getRelationships(),
+          getAllUnifiedRelationships(),
         ]);
+
 
         const newNodes: Node[] = [];
         const newEdges: Edge[] = [];
@@ -235,62 +263,24 @@ function DependencyGraphInner() {
           });
         });
 
-        // Column 2: Products (middle) - grouped by revenue stream
-        const productsByStream = new Map<number, typeof products>();
-        products.forEach(product => {
-          const streamId = product.streamId;
-          if (!productsByStream.has(streamId)) {
-            productsByStream.set(streamId, []);
-          }
-          productsByStream.get(streamId)!.push(product);
-        });
-
-        let productYOffset = START_Y;
-        streams.forEach((stream, streamIndex) => {
-          const streamProducts = productsByStream.get(stream.id) || [];
-          const streamY = START_Y + streamIndex * (NODE_HEIGHT + VERTICAL_SPACING);
+        // Column 2: Products (middle) - simple grid layout
+        products.forEach((product, index) => {
+          const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
           
-          streamProducts.forEach((product, productIndex) => {
-            const nodeId = `product-${product.id}`;
-            // Position products slightly below their parent stream
-            const y = streamY + productIndex * (NODE_HEIGHT + VERTICAL_SPACING / 2);
-            
-            newNodes.push({
-              id: nodeId,
-              type: 'product',
-              position: { x: START_X + COLUMN_WIDTH, y },
-              data: {
-                id: product.id,
-                name: product.name,
-                unitCost: product.unitCost,
-                entryWeight: product.entryWeight,
-                cac: product.cac,
-                streamId: product.streamId,
-              },
-            });
-
-            // Add edge from stream to product
-            if (product.revenueStream) {
-              newEdges.push({
-                id: `stream-${product.streamId}-product-${product.id}`,
-                source: `stream-${product.streamId}`,
-                target: nodeId,
-                type: 'relationship',
-                data: {
-                  relationship: 'belongs_to',
-                  properties: {
-                    entryWeight: product.entryWeight,
-                  },
-                },
-              });
-            }
+          newNodes.push({
+            id: `product-${product.id}`,
+            type: 'product',
+            position: { x: START_X + COLUMN_WIDTH, y },
+            data: {
+              id: product.id,
+              name: product.name,
+              unitCost: product.unitCost,
+              cac: product.cac,
+            },
           });
-
-          // Update offset for next stream's products
-          if (streamProducts.length > 0) {
-            productYOffset = Math.max(productYOffset, streamY + streamProducts.length * (NODE_HEIGHT + VERTICAL_SPACING / 2));
-          }
         });
+
+        const productYOffset = START_Y + products.length * (NODE_HEIGHT + VERTICAL_SPACING);
 
         // Column 3: Client Groups (rightmost) - distributed evenly
         const clientGroupSpacing = Math.max(NODE_HEIGHT + VERTICAL_SPACING, 
@@ -312,58 +302,51 @@ function DependencyGraphInner() {
           });
         });
 
-        // Add saved custom relationships
-        savedRelationships.forEach((relationship) => {
+        // Add all relationships from database
+        relationships.forEach((relationship) => {
+          // Convert database sourceType/targetType to match node IDs
+          const sourceNodeType = relationship.sourceType === 'clientGroup' ? 'clientgroup' : relationship.sourceType;
+          const targetNodeType = relationship.targetType === 'clientGroup' ? 'clientgroup' : relationship.targetType;
+          
+          const sourceId = `${sourceNodeType}-${relationship.sourceId}`;
+          const targetId = `${targetNodeType}-${relationship.targetId}`;
+          
+          
           newEdges.push({
-            id: `${relationship.sourceId}-${relationship.targetId}`,
-            source: relationship.sourceId,
-            target: relationship.targetId,
+            id: `relationship-${relationship.id}`,
+            source: sourceId,
+            target: targetId,
             type: 'relationship',
             data: {
-              relationship: relationship.type,
-              properties: {
-                weight: relationship.weight,
-                probability: relationship.probability,
-                afterMonths: relationship.afterMonths,
-              },
+              relationship: relationship.relationshipType,
+              properties: relationship.properties,
+              relationshipId: relationship.id,
               onEdit: (edgeId: string, edgeData: { relationship: string; properties: Record<string, string | number> }) => {
-                const [sourceId, targetId] = edgeId.split('-').reduce((acc, part, index, arr) => {
-                  if (index < arr.length - 2) {
-                    acc[0] += (acc[0] ? '-' : '') + part;
-                  } else if (index === arr.length - 2) {
-                    acc[1] = part;
-                  } else {
-                    acc[1] += '-' + part;
-                  }
-                  return acc;
-                }, ['', ''] as [string, string]);
-
-                const sourceType = sourceId.split('-')[0] as 'stream' | 'product' | 'clientGroup';
-                const targetType = targetId.split('-')[0] as 'stream' | 'product' | 'clientGroup';
+                // Convert database types to component types for modal
+                const sourceType = relationship.sourceType === 'clientGroup' ? 'clientGroup' : relationship.sourceType as 'stream' | 'product' | 'clientGroup';
+                const targetType = relationship.targetType === 'clientGroup' ? 'clientGroup' : relationship.targetType as 'stream' | 'product' | 'clientGroup';
 
                 setEditingRelationship({ id: edgeId, data: edgeData });
                 setConnectionData({
-                  source: sourceId,
-                  target: targetId,
-                  sourceType: sourceType === 'clientgroup' ? 'clientGroup' : sourceType,
-                  targetType: targetType === 'clientgroup' ? 'clientGroup' : targetType,
+                  source: `${sourceNodeType}-${relationship.sourceId}`,
+                  target: `${targetNodeType}-${relationship.targetId}`,
+                  sourceType: sourceType,
+                  targetType: targetType,
                 });
                 setModalOpen(true);
               },
               onDelete: async (edgeId: string) => {
-                const [sourceId, targetId] = edgeId.split('-').reduce((acc, part, index, arr) => {
-                  if (index < arr.length - 2) {
-                    acc[0] += (acc[0] ? '-' : '') + part;
-                  } else if (index === arr.length - 2) {
-                    acc[1] = part;
-                  } else {
-                    acc[1] += '-' + part;
-                  }
-                  return acc;
-                }, ['', ''] as [string, string]);
-
                 try {
-                  const result = await deleteRelationship(sourceId, targetId);
+                  // Extract relationship ID from edge ID (format: relationship-{id})
+                  const relationshipId = parseInt(edgeId.split('-')[1]);
+                  
+                  if (isNaN(relationshipId)) {
+                    console.error('Invalid relationship ID in edge:', edgeId);
+                    return;
+                  }
+                  
+                  const result = await deleteRelationship(relationshipId);
+                  
                   if (result.success) {
                     setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
                   } else {
@@ -377,6 +360,7 @@ function DependencyGraphInner() {
           });
         });
 
+        
         setNodes(newNodes);
         setEdges(newEdges);
       } catch (error) {
@@ -428,44 +412,24 @@ function DependencyGraphInner() {
               });
             });
 
-            // Column 2: Products - grouped by revenue stream
-            const productsByStream = new Map<number, typeof products>();
-            products.forEach(product => {
-              const streamId = product.streamId;
-              if (!productsByStream.has(streamId)) {
-                productsByStream.set(streamId, []);
-              }
-              productsByStream.get(streamId)!.push(product);
-            });
-
-            let productYOffset = START_Y;
-            streams.forEach((stream, streamIndex) => {
-              const streamProducts = productsByStream.get(stream.id) || [];
-              const streamY = START_Y + streamIndex * (NODE_HEIGHT + VERTICAL_SPACING);
+            // Column 2: Products - simple grid layout
+            products.forEach((product, index) => {
+              const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
               
-              streamProducts.forEach((product, productIndex) => {
-                const nodeId = `product-${product.id}`;
-                const y = streamY + productIndex * (NODE_HEIGHT + VERTICAL_SPACING / 2);
-                
-                newNodes.push({
-                  id: nodeId,
-                  type: 'product',
-                  position: { x: START_X + COLUMN_WIDTH, y },
-                  data: {
-                    id: product.id,
-                    name: product.name,
-                    unitCost: product.unitCost,
-                    entryWeight: product.entryWeight,
-                    cac: product.cac,
-                    streamId: product.streamId,
-                  },
-                });
+              newNodes.push({
+                id: `product-${product.id}`,
+                type: 'product',
+                position: { x: START_X + COLUMN_WIDTH, y },
+                data: {
+                  id: product.id,
+                  name: product.name,
+                  unitCost: product.unitCost,
+                  cac: product.cac,
+                },
               });
-
-              if (streamProducts.length > 0) {
-                productYOffset = Math.max(productYOffset, streamY + streamProducts.length * (NODE_HEIGHT + VERTICAL_SPACING / 2));
-              }
             });
+
+            const productYOffset = START_Y + products.length * (NODE_HEIGHT + VERTICAL_SPACING);
 
             // Column 3: Client Groups
             const clientGroupSpacing = Math.max(NODE_HEIGHT + VERTICAL_SPACING, 
@@ -488,21 +452,9 @@ function DependencyGraphInner() {
             });
 
             setNodes(newNodes);
-            // Preserve custom relationships but update default ones
-            const defaultEdges = products
-              .filter(p => p.revenueStream)
-              .map(product => ({
-                id: `stream-${product.streamId}-product-${product.id}`,
-                source: `stream-${product.streamId}`,
-                target: `product-${product.id}`,
-                type: 'relationship',
-                data: {
-                  relationship: 'belongs_to',
-                  properties: { entryWeight: product.entryWeight },
-                },
-              }));
-            
-            setEdges([...defaultEdges, ...existingCustomEdges]);
+            // Keep existing custom relationships as-is, since all relationships
+            // are now managed through the unified relationships table
+            setEdges(existingCustomEdges);
           } catch (error) {
             console.error('Failed to reload dependency graph data:', error);
           }
@@ -541,14 +493,14 @@ function DependencyGraphInner() {
           onConnect={onConnect}
           isValidConnection={isValidConnection}
           connectionLineComponent={ConnectionLine}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
+          nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
           fitView
           attributionPosition="bottom-left"
         >
           <Controls />
           <MiniMap />
-          <Background variant="dots" gap={12} size={1} />
+          <Background gap={12} size={1} />
         </ReactFlow>
       </div>
 
@@ -567,7 +519,12 @@ function DependencyGraphInner() {
           sourceId={connectionData.source}
           targetId={connectionData.target}
           onSave={handleSaveRelationship}
-          editData={editingRelationship?.data?.properties || null}
+          editData={editingRelationship?.data?.properties ? {
+            type: editingRelationship.data.relationship as 'product_to_stream' | 'clientgroup_to_product' | 'product_conversion',
+            weight: editingRelationship.data.properties.weight?.toString() || '',
+            probability: editingRelationship.data.properties.probability?.toString() || '',
+            afterMonths: editingRelationship.data.properties.afterMonths?.toString() || '',
+          } : null}
         />
       )}
     </div>

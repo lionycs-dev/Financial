@@ -34,6 +34,16 @@ export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
           return sourceType === 'product';
         }}
       />
+      
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="w-3 h-3 bg-purple-400 border-2 border-purple-600"
+        isConnectable={(connection) => {
+          const targetType = connection.target?.split('-')[0];
+          return targetType === 'product';
+        }}
+      />
     </div>
   );
 }

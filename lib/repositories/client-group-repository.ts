@@ -20,7 +20,6 @@ export class ClientGroupRepository {
     startingCustomers: number;
     churnRate: string;
     acvGrowthRate: string;
-    firstPurchaseMix: Record<string, number>;
   }) {
     const result = await db.insert(clientGroups).values(data).returning();
     return result[0];
@@ -33,7 +32,6 @@ export class ClientGroupRepository {
       startingCustomers: number;
       churnRate: string;
       acvGrowthRate: string;
-      firstPurchaseMix: Record<string, number>;
     }>
   ) {
     const result = await db

@@ -103,7 +103,6 @@ export function ClientGroupsTab() {
               <TableHead>Starting Customers</TableHead>
               <TableHead>Churn Rate</TableHead>
               <TableHead>ACV Growth Rate</TableHead>
-              <TableHead>Purchase Mix</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
@@ -111,7 +110,7 @@ export function ClientGroupsTab() {
             {clientGroups.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={5}
                   className="text-center text-muted-foreground"
                 >
                   No client groups found. Create your first one to get started.
@@ -129,16 +128,6 @@ export function ClientGroupsTab() {
                   </TableCell>
                   <TableCell>
                     {(Number(group.acvGrowthRate) * 100).toFixed(1)}%
-                  </TableCell>
-                  <TableCell>
-                    {Object.entries(
-                      group.firstPurchaseMix as Record<string, number>
-                    )
-                      .map(
-                        ([productId, percentage]) =>
-                          `P${productId}: ${(percentage * 100).toFixed(0)}%`
-                      )
-                      .join(', ')}
                   </TableCell>
                   <TableCell>
                     {new Date(group.createdAt).toLocaleDateString()}

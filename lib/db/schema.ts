@@ -56,12 +56,8 @@ export const revenueStreams = pgTable('revenue_streams', {
 // Product table
 export const products = pgTable('products', {
   id: serial('id').primaryKey(),
-  streamId: integer('stream_id')
-    .references(() => revenueStreams.id)
-    .notNull(),
   name: text('name').notNull(),
   unitCost: decimal('unit_cost', { precision: 10, scale: 2 }).notNull(),
-  entryWeight: decimal('entry_weight', { precision: 5, scale: 4 }).notNull(), // percentage as decimal
   cac: decimal('cac', { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -95,7 +91,6 @@ export const clientGroups = pgTable('client_groups', {
     precision: 5,
     scale: 4,
   }).notNull(), // percentage as decimal
-  firstPurchaseMix: json('first_purchase_mix').notNull(), // {productId: percentage}
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -114,6 +109,19 @@ export const conversionRules = pgTable('conversion_rules', {
     .notNull(),
   afterMonths: integer('after_months').notNull(),
   probability: decimal('probability', { precision: 5, scale: 4 }).notNull(), // percentage as decimal
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Unified Relationships table - replaces the mixed relationship storage
+export const relationships = pgTable('relationships', {
+  id: serial('id').primaryKey(),
+  sourceType: text('source_type').notNull(), // 'stream', 'product', 'clientGroup'
+  sourceId: integer('source_id').notNull(),
+  targetType: text('target_type').notNull(), // 'stream', 'product', 'clientGroup'
+  targetId: integer('target_id').notNull(),
+  relationshipType: text('relationship_type').notNull(), // 'product_to_stream', 'clientgroup_to_product', 'product_conversion'
+  properties: json('properties').notNull(), // { weight?, probability?, afterMonths?, entryWeight? }
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
