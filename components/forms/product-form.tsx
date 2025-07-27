@@ -26,9 +26,15 @@ import {
   productSchema,
   type ProductFormData,
 } from '@/lib/schemas/forms';
-import { createProduct, updateProduct } from '@/lib/actions/product-actions';
+import { createProduct, updateProduct, getRevenueStreams } from '@/lib/actions/product-actions';
 import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+
+interface RevenueStream {
+  id: number;
+  name: string;
+  type: string;
+}
 
 interface ProductFormProps {
   onSuccess: () => void;
@@ -36,6 +42,8 @@ interface ProductFormProps {
     id: number;
     name: string;
     unitCost: string;
+    productStreamId?: number;
+    weight?: string;
     pricingPlans?: Array<{
       name: string;
       priceFormula: string;
@@ -51,6 +59,7 @@ interface ProductFormProps {
 
 export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
+  const [revenueStreams, setRevenueStreams] = useState<RevenueStream[]>([]);
   const isEditing = !!initialData;
 
   const form = useForm<ProductFormData>({
@@ -58,6 +67,8 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
     defaultValues: {
       name: initialData?.name || '',
       unitCost: initialData?.unitCost || '',
+      productStreamId: initialData?.productStreamId || 0,
+      weight: initialData?.weight || '',
       pricingPlans: initialData?.pricingPlans
         ? initialData.pricingPlans.map((plan) => ({
             ...plan,
@@ -84,12 +95,27 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
     name: 'pricingPlans',
   });
 
+  // Load revenue streams on component mount
+  useEffect(() => {
+    async function loadRevenueStreams() {
+      try {
+        const streams = await getRevenueStreams();
+        setRevenueStreams(streams);
+      } catch (error) {
+        console.error('Failed to load revenue streams:', error);
+      }
+    }
+    loadRevenueStreams();
+  }, []);
+
   // Reset form when initialData changes
   useEffect(() => {
     if (initialData) {
       form.reset({
         name: initialData.name,
         unitCost: initialData.unitCost,
+        productStreamId: initialData.productStreamId || 0,
+        weight: initialData.weight || '',
         pricingPlans: initialData.pricingPlans || [
           {
             name: '',
@@ -174,7 +200,59 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="weight"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Weight in Revenue Stream</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="0.25"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Percentage of revenue stream (0-1, must sum to 1 within stream)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
+
+          <FormField
+            control={form.control}
+            name="productStreamId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Revenue Stream</FormLabel>
+                <Select
+                  onValueChange={(value) => field.onChange(Number(value))}
+                  value={field.value?.toString()}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a revenue stream" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {revenueStreams.map((stream) => (
+                      <SelectItem key={stream.id} value={stream.id.toString()}>
+                        {stream.name} ({stream.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         {/* Pricing Plans */}

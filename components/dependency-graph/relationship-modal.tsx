@@ -32,8 +32,8 @@ import React from 'react';
 
 const relationshipSchema = z.object({
   type: z.enum([
-    'product_to_stream',
     'clientgroup_to_product',
+    'clientgroup_to_stream',
     'product_conversion',
   ]),
   weight: z
@@ -64,8 +64,8 @@ const relationshipSchema = z.object({
 });
 
 type RelationshipType =
-  | 'product_to_stream'
   | 'clientgroup_to_product'
+  | 'clientgroup_to_stream'
   | 'product_conversion';
 type RelationshipFormData = z.infer<typeof relationshipSchema>;
 
@@ -124,14 +124,15 @@ export function RelationshipModal({
     source: string,
     target: string
   ): RelationshipType {
-    if (source === 'stream' && target === 'product') return 'product_to_stream';
     if (source === 'product' && target === 'clientGroup')
       return 'clientgroup_to_product';
     if (source === 'clientGroup' && target === 'product')
       return 'clientgroup_to_product';
+    if (source === 'clientGroup' && target === 'stream')
+      return 'clientgroup_to_stream';
     if (source === 'product' && target === 'product')
       return 'product_conversion';
-    return 'product_to_stream'; // fallback
+    return 'clientgroup_to_product'; // fallback
   }
 
   function getValidRelationshipTypes(
@@ -139,13 +140,6 @@ export function RelationshipModal({
     target: string
   ): Array<{ value: RelationshipType; label: string }> {
     const validTypes: Array<{ value: RelationshipType; label: string }> = [];
-
-    if (source === 'stream' && target === 'product') {
-      validTypes.push({
-        value: 'product_to_stream',
-        label: 'Product belongs to Stream',
-      });
-    }
 
     if (source === 'product' && target === 'clientGroup') {
       validTypes.push({
@@ -159,6 +153,14 @@ export function RelationshipModal({
       validTypes.push({
         value: 'clientgroup_to_product',
         label: 'Client Group purchases Product',
+      });
+    }
+
+    // Support clientGroup to revenue stream relationships
+    if (source === 'clientGroup' && target === 'stream') {
+      validTypes.push({
+        value: 'clientgroup_to_stream',
+        label: 'Client Group purchases from Revenue Stream',
       });
     }
 
@@ -238,8 +240,9 @@ export function RelationshipModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {relationshipType === 'product_to_stream' && 'Entry Weight'}
                     {relationshipType === 'clientgroup_to_product' &&
+                      'Purchase Mix Weight'}
+                    {relationshipType === 'clientgroup_to_stream' &&
                       'Purchase Mix Weight'}
                     {relationshipType === 'product_conversion' &&
                       'Conversion Weight'}

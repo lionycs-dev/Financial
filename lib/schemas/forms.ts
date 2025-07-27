@@ -55,6 +55,16 @@ export const productSchema = z.object({
     .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
       message: 'Unit cost must be a valid positive number',
     }),
+  productStreamId: z.number().min(1, 'Revenue stream is required'),
+  weight: z
+    .string()
+    .min(1, 'Weight is required')
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) > 0 && Number(val) <= 1,
+      {
+        message: 'Weight must be between 0 and 1',
+      }
+    ),
   pricingPlans: z
     .array(pricingPlanSchema)
     .min(1, 'At least one pricing plan is required'),

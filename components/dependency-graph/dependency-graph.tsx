@@ -71,8 +71,9 @@ function DependencyGraphInner() {
 
     // Define valid connection patterns
     const validConnections = [
-      { source: 'stream', target: 'product' }, // Stream can connect to Product
       { source: 'product', target: 'clientgroup' }, // Product can connect to ClientGroup
+      { source: 'clientgroup', target: 'product' }, // ClientGroup can connect to Product  
+      { source: 'clientgroup', target: 'stream' }, // ClientGroup can connect to Revenue Stream
       { source: 'product', target: 'product' }, // Product can convert to Product
     ];
 
@@ -142,6 +143,20 @@ function DependencyGraphInner() {
               finalSourceType = 'clientGroup';
               finalSourceId = parseInt(connectionData.target.split('-')[1]);
               finalTargetType = 'product';
+              finalTargetId = parseInt(connectionData.source.split('-')[1]);
+            }
+          } else if (relationshipData.type === 'clientgroup_to_stream') {
+            // For clientgroup_to_stream, clientgroup is ALWAYS source, stream is ALWAYS target
+            if (connectionData.sourceType === 'clientGroup') {
+              finalSourceType = 'clientGroup';
+              finalSourceId = parseInt(connectionData.source.split('-')[1]);
+              finalTargetType = 'stream';
+              finalTargetId = parseInt(connectionData.target.split('-')[1]);
+            } else {
+              // User dragged from stream to clientgroup, reverse it
+              finalSourceType = 'clientGroup';
+              finalSourceId = parseInt(connectionData.target.split('-')[1]);
+              finalTargetType = 'stream';
               finalTargetId = parseInt(connectionData.source.split('-')[1]);
             }
           } else {
@@ -313,8 +328,28 @@ function DependencyGraphInner() {
               id: product.id,
               name: product.name,
               unitCost: product.unitCost,
+              productStreamId: product.productStreamId,
+              weight: product.weight,
             },
           });
+
+          // Add automatic edge from revenue stream to product (showing the foreign key relationship)
+          if (product.productStreamId) {
+            newEdges.push({
+              id: `auto-stream-product-${product.id}`,
+              source: `stream-${product.productStreamId}`,
+              target: `product-${product.id}`,
+              type: 'relationship',
+              style: { stroke: '#10b981', strokeDasharray: '5,5' }, // Green dashed line for automatic relationships
+              data: {
+                relationship: 'belongs_to',
+                properties: { weight: product.weight },
+                isAutomatic: true,
+                onEdit: () => {}, // No edit for automatic relationships
+                onDelete: () => {}, // No delete for automatic relationships
+              },
+            });
+          }
         });
 
         const productYOffset =
@@ -490,8 +525,28 @@ function DependencyGraphInner() {
                   id: product.id,
                   name: product.name,
                   unitCost: product.unitCost,
+                  productStreamId: product.productStreamId,
+                  weight: product.weight,
                 },
               });
+
+              // Add automatic edge from revenue stream to product (showing the foreign key relationship)
+              if (product.productStreamId) {
+                existingCustomEdges.push({
+                  id: `auto-stream-product-${product.id}`,
+                  source: `stream-${product.productStreamId}`,
+                  target: `product-${product.id}`,
+                  type: 'relationship',
+                  style: { stroke: '#10b981', strokeDasharray: '5,5' }, // Green dashed line for automatic relationships
+                  data: {
+                    relationship: 'belongs_to',
+                    properties: { weight: product.weight },
+                    isAutomatic: true,
+                    onEdit: () => {}, // No edit for automatic relationships
+                    onDelete: () => {}, // No delete for automatic relationships
+                  },
+                });
+              }
             });
 
             const productYOffset =
@@ -592,8 +647,8 @@ function DependencyGraphInner() {
             editingRelationship?.data?.properties
               ? {
                   type: editingRelationship.data.relationship as
-                    | 'product_to_stream'
                     | 'clientgroup_to_product'
+                    | 'clientgroup_to_stream'
                     | 'product_conversion',
                   weight:
                     editingRelationship.data.properties.weight?.toString() ||

@@ -4,7 +4,9 @@
       "Bash(npm install:*)",
       "Bash(npm run lint)",
       "Bash(npm run:*)",
-      "Bash(npx shadcn@latest add:*)"
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(bun build:*)"
     ],
     "deny": []
   }

@@ -31,6 +31,8 @@ export function ProductsTab() {
       id: number;
       name: string;
       unitCost: string;
+      productStreamId: number;
+      weight: string;
       pricingPlans: Array<{
         name: string;
         priceFormula: string;
@@ -41,6 +43,11 @@ export function ProductsTab() {
         leadToCashLag: number;
         escalatorPct?: string;
       }>;
+      revenueStream?: {
+        id: number;
+        name: string;
+        type: string;
+      };
       createdAt: Date;
       updatedAt: Date;
     }[]
@@ -51,6 +58,8 @@ export function ProductsTab() {
     id: number;
     name: string;
     unitCost: string;
+    productStreamId?: number;
+    weight?: string;
     pricingPlans?: Array<{
       name: string;
       priceFormula: string;
@@ -106,6 +115,8 @@ export function ProductsTab() {
       id: product.id,
       name: product.name,
       unitCost: product.unitCost,
+      productStreamId: product.productStreamId,
+      weight: product.weight,
       pricingPlans: product.pricingPlans?.map((plan) => ({
         ...plan,
         frequency: plan.frequency as FrequencyType,
@@ -172,6 +183,8 @@ export function ProductsTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Revenue Stream</TableHead>
+              <TableHead>Weight</TableHead>
               <TableHead>Unit Cost</TableHead>
               <TableHead>Pricing Plans</TableHead>
               <TableHead>Created</TableHead>
@@ -181,7 +194,7 @@ export function ProductsTab() {
             {products.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center text-muted-foreground"
                 >
                   No products found. Create your first one to get started.
@@ -195,6 +208,21 @@ export function ProductsTab() {
                   onClick={() => handleEditProduct(product)}
                 >
                   <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell>
+                    {product.revenueStream ? (
+                      <div>
+                        <div className="font-medium">{product.revenueStream.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {product.revenueStream.type}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">No stream</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {(Number(product.weight) * 100).toFixed(1)}%
+                  </TableCell>
                   <TableCell>${product.unitCost}</TableCell>
                   <TableCell>
                     <div className="space-y-1">

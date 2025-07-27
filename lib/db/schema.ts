@@ -32,6 +32,8 @@ export const products = pgTable('products', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   unitCost: decimal('unit_cost', { precision: 10, scale: 2 }).notNull(),
+  productStreamId: integer('product_stream_id').references(() => revenueStreams.id).notNull(),
+  weight: decimal('weight', { precision: 5, scale: 4 }).notNull(), // percentage as decimal, sum to 1 within stream
   pricingPlans: json('pricing_plans').notNull().default('[]'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -50,15 +52,15 @@ export const clientGroups = pgTable('client_groups', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Unified Relationships table - replaces the mixed relationship storage
+// Unified Relationships table - handles remaining relationships (product_to_stream is now in products table)
 export const relationships = pgTable('relationships', {
   id: serial('id').primaryKey(),
   sourceType: text('source_type').notNull(), // 'stream', 'product', 'clientGroup'
   sourceId: integer('source_id').notNull(),
   targetType: text('target_type').notNull(), // 'stream', 'product', 'clientGroup'
   targetId: integer('target_id').notNull(),
-  relationshipType: text('relationship_type').notNull(), // 'product_to_stream', 'clientgroup_to_product', 'product_conversion'
-  properties: json('properties').notNull(), // { weight?, probability?, afterMonths?, entryWeight? }
+  relationshipType: text('relationship_type').notNull(), // 'clientgroup_to_product', 'clientgroup_to_stream', 'product_conversion'
+  properties: json('properties').notNull(), // { weight?, probability?, afterMonths? }
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
