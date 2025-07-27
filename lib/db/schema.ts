@@ -37,6 +37,9 @@ export const products = pgTable('products', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export type ProductSelect = typeof products.$inferSelect;
+export type ProductInsert = typeof products.$inferInsert;
+
 // Client Group table
 export const clientGroups = pgTable('client_groups', {
   id: serial('id').primaryKey(),

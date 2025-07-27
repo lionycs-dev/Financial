@@ -33,21 +33,28 @@ import React from 'react';
 const relationshipSchema = z.object({
   type: z.enum([
     'product_to_stream',
-    'clientgroup_to_product', 
+    'clientgroup_to_product',
     'product_conversion',
   ]),
   weight: z
     .string()
     .min(1, 'Weight is required')
-    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 1, {
-      message: 'Weight must be between 0 and 1',
-    }),
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 1,
+      {
+        message: 'Weight must be between 0 and 1',
+      }
+    ),
   probability: z
     .string()
     .optional()
-    .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 1), {
-      message: 'Probability must be between 0 and 1',
-    }),
+    .refine(
+      (val) =>
+        !val || (!isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 1),
+      {
+        message: 'Probability must be between 0 and 1',
+      }
+    ),
   afterMonths: z
     .string()
     .optional()
@@ -56,6 +63,10 @@ const relationshipSchema = z.object({
     }),
 });
 
+type RelationshipType =
+  | 'product_to_stream'
+  | 'clientgroup_to_product'
+  | 'product_conversion';
 type RelationshipFormData = z.infer<typeof relationshipSchema>;
 
 interface RelationshipModalProps {
@@ -80,7 +91,10 @@ export function RelationshipModal({
   const [loading, setLoading] = useState(false);
 
   const validTypes = getValidRelationshipTypes(sourceType, targetType);
-  const defaultType = validTypes.length > 0 ? validTypes[0].value : getRelationshipType(sourceType, targetType);
+  const defaultType: RelationshipType =
+    validTypes.length > 0
+      ? validTypes[0].value
+      : getRelationshipType(sourceType, targetType);
 
   const form = useForm<RelationshipFormData>({
     resolver: zodResolver(relationshipSchema),
@@ -109,34 +123,52 @@ export function RelationshipModal({
   function getRelationshipType(
     source: string,
     target: string
-  ): 'product_to_stream' | 'clientgroup_to_product' | 'product_conversion' {
+  ): RelationshipType {
     if (source === 'stream' && target === 'product') return 'product_to_stream';
-    if (source === 'product' && target === 'clientGroup') return 'clientgroup_to_product';
-    if (source === 'clientGroup' && target === 'product') return 'clientgroup_to_product';
-    if (source === 'product' && target === 'product') return 'product_conversion';
+    if (source === 'product' && target === 'clientGroup')
+      return 'clientgroup_to_product';
+    if (source === 'clientGroup' && target === 'product')
+      return 'clientgroup_to_product';
+    if (source === 'product' && target === 'product')
+      return 'product_conversion';
     return 'product_to_stream'; // fallback
   }
 
-  function getValidRelationshipTypes(source: string, target: string) {
-    const validTypes: Array<{value: string, label: string}> = [];
-    
+  function getValidRelationshipTypes(
+    source: string,
+    target: string
+  ): Array<{ value: RelationshipType; label: string }> {
+    const validTypes: Array<{ value: RelationshipType; label: string }> = [];
+
     if (source === 'stream' && target === 'product') {
-      validTypes.push({ value: 'product_to_stream', label: 'Product belongs to Stream' });
+      validTypes.push({
+        value: 'product_to_stream',
+        label: 'Product belongs to Stream',
+      });
     }
-    
+
     if (source === 'product' && target === 'clientGroup') {
-      validTypes.push({ value: 'clientgroup_to_product', label: 'Client Group purchases Product' });
+      validTypes.push({
+        value: 'clientgroup_to_product',
+        label: 'Client Group purchases Product',
+      });
     }
-    
+
     // Support both directions for clientGroup <-> product relationships
     if (source === 'clientGroup' && target === 'product') {
-      validTypes.push({ value: 'clientgroup_to_product', label: 'Client Group purchases Product' });
+      validTypes.push({
+        value: 'clientgroup_to_product',
+        label: 'Client Group purchases Product',
+      });
     }
-    
+
     if (source === 'product' && target === 'product') {
-      validTypes.push({ value: 'product_conversion', label: 'Product Conversion' });
+      validTypes.push({
+        value: 'product_conversion',
+        label: 'Product Conversion',
+      });
     }
-    
+
     return validTypes;
   }
 
@@ -159,9 +191,12 @@ export function RelationshipModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{editData ? 'Edit Relationship' : 'Create Relationship'}</DialogTitle>
+          <DialogTitle>
+            {editData ? 'Edit Relationship' : 'Create Relationship'}
+          </DialogTitle>
           <DialogDescription>
-            {editData ? 'Modify' : 'Define'} the relationship properties between {sourceType} and {targetType}.
+            {editData ? 'Modify' : 'Define'} the relationship properties between{' '}
+            {sourceType} and {targetType}.
           </DialogDescription>
         </DialogHeader>
 
@@ -204,8 +239,10 @@ export function RelationshipModal({
                 <FormItem>
                   <FormLabel>
                     {relationshipType === 'product_to_stream' && 'Entry Weight'}
-                    {relationshipType === 'clientgroup_to_product' && 'Purchase Mix Weight'}
-                    {relationshipType === 'product_conversion' && 'Conversion Weight'}
+                    {relationshipType === 'clientgroup_to_product' &&
+                      'Purchase Mix Weight'}
+                    {relationshipType === 'product_conversion' &&
+                      'Conversion Weight'}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -274,8 +311,17 @@ export function RelationshipModal({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || validTypes.length === 0}>
-                {loading ? (editData ? 'Updating...' : 'Creating...') : (editData ? 'Update Relationship' : 'Create Relationship')}
+              <Button
+                type="submit"
+                disabled={loading || validTypes.length === 0}
+              >
+                {loading
+                  ? editData
+                    ? 'Updating...'
+                    : 'Creating...'
+                  : editData
+                    ? 'Update Relationship'
+                    : 'Create Relationship'}
               </Button>
             </div>
           </form>

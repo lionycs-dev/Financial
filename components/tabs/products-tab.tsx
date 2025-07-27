@@ -23,6 +23,7 @@ import {
 import { ProductForm } from '@/components/forms/product-form';
 import { getProducts } from '@/lib/actions/product-actions';
 import { FrequencyType, InvoiceTimingType } from '@/lib/schemas/forms';
+import { ProductSelect } from '@/lib/db/schema';
 
 export function ProductsTab() {
   const [products, setProducts] = useState<
@@ -66,7 +67,13 @@ export function ProductsTab() {
     async function loadProducts() {
       try {
         const data = await getProducts();
-        setProducts(data);
+        const safeData = data.map((product: ProductSelect) => ({
+          ...product,
+          pricingPlans: Array.isArray(product.pricingPlans)
+            ? product.pricingPlans
+            : [],
+        }));
+        setProducts(safeData);
       } catch (error) {
         console.error('Failed to load products:', error);
       } finally {
@@ -82,7 +89,13 @@ export function ProductsTab() {
     // Reload products
     try {
       const data = await getProducts();
-      setProducts(data);
+      const safeData = data.map((product: ProductSelect) => ({
+        ...product,
+        pricingPlans: Array.isArray(product.pricingPlans)
+          ? product.pricingPlans
+          : [],
+      }));
+      setProducts(safeData);
     } catch (error) {
       console.error('Failed to reload products:', error);
     }
@@ -93,7 +106,11 @@ export function ProductsTab() {
       id: product.id,
       name: product.name,
       unitCost: product.unitCost,
-      pricingPlans: product.pricingPlans,
+      pricingPlans: product.pricingPlans?.map((plan) => ({
+        ...plan,
+        frequency: plan.frequency as FrequencyType,
+        invoiceTiming: plan.invoiceTiming as InvoiceTimingType,
+      })),
     });
     setOpen(true);
   };

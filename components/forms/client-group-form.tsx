@@ -46,8 +46,8 @@ export function ClientGroupForm({ onSuccess }: ClientGroupFormProps) {
   ]);
   const [error, setError] = useState<string>('');
 
-  const form = useForm<Omit<ClientGroupFormData, 'firstPurchaseMix'>>({
-    resolver: zodResolver(clientGroupSchema.omit({ firstPurchaseMix: true })),
+  const form = useForm<ClientGroupFormData>({
+    resolver: zodResolver(clientGroupSchema),
     defaultValues: {
       name: '',
       startingCustomers: 0,
@@ -87,11 +87,7 @@ export function ClientGroupForm({ onSuccess }: ClientGroupFormProps) {
     setPurchaseMix(updated);
   };
 
-  async function onSubmit(
-    values: Omit<ClientGroupFormData, 'firstPurchaseMix'>
-  ) {
-    console.log('Form submitted with values:', values);
-    console.log('Purchase mix:', purchaseMix);
+  async function onSubmit(values: ClientGroupFormData) {
     setLoading(true);
     setError('');
 
@@ -106,28 +102,8 @@ export function ClientGroupForm({ onSuccess }: ClientGroupFormProps) {
         return;
       }
 
-      // Convert purchase mix array to object
-      const firstPurchaseMix: Record<string, number> = {};
-      purchaseMix.forEach((item) => {
-        if (item.productId && item.percentage > 0) {
-          firstPurchaseMix[item.productId] = item.percentage / 100; // Convert to decimal
-        }
-      });
-
-      // Validate that percentages sum to 100%
-      const totalPercentage = Object.values(firstPurchaseMix).reduce(
-        (sum, val) => sum + val,
-        0
-      );
-      if (Math.abs(totalPercentage - 1) > 0.001) {
-        setError('Purchase mix percentages must sum to 100%');
-        setLoading(false);
-        return;
-      }
-
       const result = await createClientGroup({
         ...values,
-        firstPurchaseMix,
       });
 
       if (result.success) {
