@@ -40,6 +40,12 @@ export function StreamsTab() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [editingStream, setEditingStream] = useState<{
+    id: number;
+    name: string;
+    type: 'Subscription' | 'RepeatPurchase' | 'SinglePurchase' | 'RevenueOnly';
+    description?: string;
+  } | null>(null);
 
   useEffect(() => {
     async function loadStreams() {
@@ -57,6 +63,7 @@ export function StreamsTab() {
 
   const handleSuccess = async () => {
     setOpen(false);
+    setEditingStream(null);
     // Reload streams
     try {
       const data = await getRevenueStreams();
@@ -64,6 +71,21 @@ export function StreamsTab() {
     } catch (error) {
       console.error('Failed to reload streams:', error);
     }
+  };
+
+  const handleEditStream = (stream: typeof streams[0]) => {
+    setEditingStream({
+      id: stream.id,
+      name: stream.name,
+      type: stream.type,
+      description: stream.description || undefined,
+    });
+    setOpen(true);
+  };
+
+  const handleNewStream = () => {
+    setEditingStream(null);
+    setOpen(true);
   };
 
   if (loading) {
@@ -74,19 +96,29 @@ export function StreamsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Revenue Streams</h2>
-        <Drawer open={open} onOpenChange={setOpen} direction="right">
+        <Drawer open={open} onOpenChange={(open) => {
+          setOpen(open);
+          if (!open) {
+            setEditingStream(null);
+          }
+        }} direction="right">
           <DrawerTrigger asChild>
-            <Button>New Revenue Stream</Button>
+            <Button onClick={handleNewStream}>New Revenue Stream</Button>
           </DrawerTrigger>
           <DrawerContent className="max-h-[100vh] overflow-y-auto">
             <DrawerHeader>
-              <DrawerTitle>Create New Revenue Stream</DrawerTitle>
+              <DrawerTitle>
+                {editingStream ? 'Edit Revenue Stream' : 'Create New Revenue Stream'}
+              </DrawerTitle>
               <DrawerDescription>
-                Add a new revenue stream to organize your products.
+                {editingStream 
+                  ? 'Update the revenue stream details.' 
+                  : 'Add a new revenue stream to organize your products.'
+                }
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <RevenueStreamForm onSuccess={handleSuccess} />
+              <RevenueStreamForm onSuccess={handleSuccess} initialData={editingStream} />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
@@ -120,7 +152,11 @@ export function StreamsTab() {
               </TableRow>
             ) : (
               streams.map((stream) => (
-                <TableRow key={stream.id}>
+                <TableRow 
+                  key={stream.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleEditStream(stream)}
+                >
                   <TableCell className="font-medium">{stream.name}</TableCell>
                   <TableCell>{stream.type}</TableCell>
                   <TableCell>{stream.description ?? '-'}</TableCell>

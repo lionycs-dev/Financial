@@ -19,6 +19,16 @@ export class ProductRepository {
     name: string;
     unitCost: string;
     cac: string;
+    pricingPlans: Array<{
+      name: string;
+      priceFormula: string;
+      frequency: string;
+      customFrequency?: number;
+      invoiceTiming: string;
+      customInvoiceTiming?: number;
+      leadToCashLag: number;
+      escalatorPct?: string;
+    }>;
   }) {
     const result = await db.insert(products).values(data).returning();
     return result[0];
@@ -30,6 +40,16 @@ export class ProductRepository {
       name: string;
       unitCost: string;
       cac: string;
+      pricingPlans: Array<{
+        name: string;
+        priceFormula: string;
+        frequency: string;
+        customFrequency?: number;
+        invoiceTiming: string;
+        customInvoiceTiming?: number;
+        leadToCashLag: number;
+        escalatorPct?: string;
+      }>;
     }>
   ) {
     const result = await db

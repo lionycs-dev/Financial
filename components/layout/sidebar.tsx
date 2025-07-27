@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
-  BarChart3,
   Package,
   Users,
   Home,
@@ -33,11 +32,6 @@ const navigation = [
     name: 'Client Groups',
     href: '/client-groups',
     icon: Users,
-  },
-  {
-    name: 'Pricing Plans',
-    href: '/pricing-plans',
-    icon: BarChart3,
   },
   {
     name: 'Conversion Rules',

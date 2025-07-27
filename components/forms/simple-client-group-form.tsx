@@ -13,7 +13,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import React from 'react';
 import { z } from 'zod';
 
 // Simplified client group schema without product relationships
@@ -46,49 +47,73 @@ type SimpleClientGroupFormData = z.infer<typeof simpleClientGroupSchema>;
 
 interface SimpleClientGroupFormProps {
   onSuccess: () => void;
+  initialData?: {
+    id: number;
+    name: string;
+    startingCustomers: number;
+    churnRate: string;
+    acvGrowthRate: string;
+  } | null;
 }
 
 export function SimpleClientGroupForm({
   onSuccess,
+  initialData,
 }: SimpleClientGroupFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const isEditing = !!initialData;
 
   const form = useForm<SimpleClientGroupFormData>({
     resolver: zodResolver(simpleClientGroupSchema),
     defaultValues: {
-      name: '',
-      startingCustomers: '',
-      churnRate: '',
-      acvGrowthRate: '',
+      name: initialData?.name || '',
+      startingCustomers: initialData?.startingCustomers?.toString() || '',
+      churnRate: initialData?.churnRate || '',
+      acvGrowthRate: initialData?.acvGrowthRate || '',
     },
   });
+
+  // Reset form when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        startingCustomers: initialData.startingCustomers.toString(),
+        churnRate: initialData.churnRate,
+        acvGrowthRate: initialData.acvGrowthRate,
+      });
+    }
+  }, [initialData, form]);
 
   async function onSubmit(values: SimpleClientGroupFormData) {
     setLoading(true);
     setError('');
 
     try {
-      const { createClientGroup } = await import('@/lib/actions/client-group-actions');
+      const { createClientGroup, updateClientGroup } = await import('@/lib/actions/client-group-actions');
       
       const clientGroupData = {
         name: values.name,
         startingCustomers: parseInt(values.startingCustomers),
         churnRate: values.churnRate,
         acvGrowthRate: values.acvGrowthRate,
-        firstPurchaseMix: {}, // Empty object for simplified form
       };
 
-      const result = await createClientGroup(clientGroupData);
+      const result = isEditing 
+        ? await updateClientGroup(initialData!.id, clientGroupData)
+        : await createClientGroup(clientGroupData);
       
       if (result.success) {
-        form.reset();
+        if (!isEditing) {
+          form.reset();
+        }
         onSuccess();
       } else {
-        setError(result.error || 'Failed to create client group');
+        setError(result.error || `Failed to ${isEditing ? 'update' : 'create'} client group`);
       }
     } catch (error) {
-      console.error('Failed to create client group:', error);
+      console.error(`Failed to ${isEditing ? 'update' : 'create'} client group:`, error);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -186,7 +211,10 @@ export function SimpleClientGroupForm({
         )}
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Creating...' : 'Create Client Group'}
+          {loading 
+            ? (isEditing ? 'Updating...' : 'Creating...') 
+            : (isEditing ? 'Update Client Group' : 'Create Client Group')
+          }
         </Button>
       </form>
     </Form>

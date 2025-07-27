@@ -31,13 +31,19 @@ export function ClientGroupsTab() {
       startingCustomers: number;
       churnRate: string;
       acvGrowthRate: string;
-      firstPurchaseMix: unknown;
       createdAt: Date;
       updatedAt: Date;
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [editingClientGroup, setEditingClientGroup] = useState<{
+    id: number;
+    name: string;
+    startingCustomers: number;
+    churnRate: string;
+    acvGrowthRate: string;
+  } | null>(null);
 
   useEffect(() => {
     async function loadClientGroups() {
@@ -55,6 +61,7 @@ export function ClientGroupsTab() {
 
   const handleSuccess = async () => {
     setOpen(false);
+    setEditingClientGroup(null);
     // Reload client groups
     try {
       const data = await getClientGroups();
@@ -62,6 +69,22 @@ export function ClientGroupsTab() {
     } catch (error) {
       console.error('Failed to reload client groups:', error);
     }
+  };
+
+  const handleEditClientGroup = (group: typeof clientGroups[0]) => {
+    setEditingClientGroup({
+      id: group.id,
+      name: group.name,
+      startingCustomers: group.startingCustomers,
+      churnRate: group.churnRate,
+      acvGrowthRate: group.acvGrowthRate,
+    });
+    setOpen(true);
+  };
+
+  const handleNewClientGroup = () => {
+    setEditingClientGroup(null);
+    setOpen(true);
   };
 
   if (loading) {
@@ -72,19 +95,29 @@ export function ClientGroupsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Client Groups</h2>
-        <Drawer open={open} onOpenChange={setOpen} direction="right">
+        <Drawer open={open} onOpenChange={(open) => {
+          setOpen(open);
+          if (!open) {
+            setEditingClientGroup(null);
+          }
+        }} direction="right">
           <DrawerTrigger asChild>
-            <Button>New Client Group</Button>
+            <Button onClick={handleNewClientGroup}>New Client Group</Button>
           </DrawerTrigger>
           <DrawerContent className="max-h-[100vh] overflow-y-auto">
             <DrawerHeader>
-              <DrawerTitle>Create New Client Group</DrawerTitle>
+              <DrawerTitle>
+                {editingClientGroup ? 'Edit Client Group' : 'Create New Client Group'}
+              </DrawerTitle>
               <DrawerDescription>
-                Add a new client group with basic customer metrics.
+                {editingClientGroup 
+                  ? 'Update the client group details.' 
+                  : 'Add a new client group with basic customer metrics.'
+                }
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <SimpleClientGroupForm onSuccess={handleSuccess} />
+              <SimpleClientGroupForm onSuccess={handleSuccess} initialData={editingClientGroup} />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
@@ -118,7 +151,11 @@ export function ClientGroupsTab() {
               </TableRow>
             ) : (
               clientGroups.map((group) => (
-                <TableRow key={group.id}>
+                <TableRow 
+                  key={group.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleEditClientGroup(group)}
+                >
                   <TableCell className="font-medium">{group.name}</TableCell>
                   <TableCell>
                     {group.startingCustomers.toLocaleString()}

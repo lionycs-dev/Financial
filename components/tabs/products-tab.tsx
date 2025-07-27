@@ -27,26 +27,41 @@ export function ProductsTab() {
   const [products, setProducts] = useState<
     {
       id: number;
-      streamId: number;
       name: string;
       unitCost: string;
-      entryWeight: string;
       cac: string;
+      pricingPlans: Array<{
+        name: string;
+        priceFormula: string;
+        frequency: string;
+        customFrequency?: number;
+        invoiceTiming: string;
+        customInvoiceTiming?: number;
+        leadToCashLag: number;
+        escalatorPct?: string;
+      }>;
       createdAt: Date;
       updatedAt: Date;
-      revenueStream: {
-        id: number;
-        name: string;
-        type:
-          | 'Subscription'
-          | 'RepeatPurchase'
-          | 'SinglePurchase'
-          | 'RevenueOnly';
-      } | null;
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<{
+    id: number;
+    name: string;
+    unitCost: string;
+    cac: string;
+    pricingPlans?: Array<{
+      name: string;
+      priceFormula: string;
+      frequency: string;
+      customFrequency?: number;
+      invoiceTiming: string;
+      customInvoiceTiming?: number;
+      leadToCashLag: number;
+      escalatorPct?: string;
+    }>;
+  } | null>(null);
 
   useEffect(() => {
     async function loadProducts() {
@@ -64,6 +79,7 @@ export function ProductsTab() {
 
   const handleSuccess = async () => {
     setOpen(false);
+    setEditingProduct(null);
     // Reload products
     try {
       const data = await getProducts();
@@ -71,6 +87,22 @@ export function ProductsTab() {
     } catch (error) {
       console.error('Failed to reload products:', error);
     }
+  };
+
+  const handleEditProduct = (product: typeof products[0]) => {
+    setEditingProduct({
+      id: product.id,
+      name: product.name,
+      unitCost: product.unitCost,
+      cac: product.cac,
+      pricingPlans: product.pricingPlans,
+    });
+    setOpen(true);
+  };
+
+  const handleNewProduct = () => {
+    setEditingProduct(null);
+    setOpen(true);
   };
 
   if (loading) {
@@ -81,19 +113,29 @@ export function ProductsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Products</h2>
-        <Drawer open={open} onOpenChange={setOpen} direction="right">
+        <Drawer open={open} onOpenChange={(open) => {
+          setOpen(open);
+          if (!open) {
+            setEditingProduct(null);
+          }
+        }} direction="right">
           <DrawerTrigger asChild>
-            <Button>New Product</Button>
+            <Button onClick={handleNewProduct}>New Product</Button>
           </DrawerTrigger>
           <DrawerContent className="max-h-[100vh] overflow-y-auto">
             <DrawerHeader>
-              <DrawerTitle>Create New Product</DrawerTitle>
+              <DrawerTitle>
+                {editingProduct ? 'Edit Product' : 'Create New Product'}
+              </DrawerTitle>
               <DrawerDescription>
-                Add a new product with pricing plans and detailed information.
+                {editingProduct 
+                  ? 'Update the product details and pricing plans.' 
+                  : 'Add a new product with pricing plans and detailed information.'
+                }
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <ProductForm onSuccess={handleSuccess} />
+              <ProductForm onSuccess={handleSuccess} initialData={editingProduct} />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
@@ -109,10 +151,9 @@ export function ProductsTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Revenue Stream</TableHead>
               <TableHead>Unit Cost</TableHead>
-              <TableHead>Entry Weight</TableHead>
               <TableHead>CAC</TableHead>
+              <TableHead>Pricing Plans</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
@@ -120,7 +161,7 @@ export function ProductsTab() {
             {products.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={5}
                   className="text-center text-muted-foreground"
                 >
                   No products found. Create your first one to get started.
@@ -128,14 +169,30 @@ export function ProductsTab() {
               </TableRow>
             ) : (
               products.map((product) => (
-                <TableRow key={product.id}>
+                <TableRow 
+                  key={product.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleEditProduct(product)}
+                >
                   <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.revenueStream?.name || 'N/A'}</TableCell>
                   <TableCell>${product.unitCost}</TableCell>
-                  <TableCell>
-                    {(Number(product.entryWeight) * 100).toFixed(1)}%
-                  </TableCell>
                   <TableCell>${product.cac}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      {product.pricingPlans?.length > 0 ? (
+                        product.pricingPlans.map((plan, index) => (
+                          <div key={index} className="text-sm">
+                            <span className="font-medium">{plan.name}</span>
+                            <span className="text-muted-foreground ml-2">
+                              {plan.priceFormula} ({plan.frequency})
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No plans</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {new Date(product.createdAt).toLocaleDateString()}
                   </TableCell>

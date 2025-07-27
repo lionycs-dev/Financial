@@ -3,6 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
+import React from 'react';
 import {
   Form,
   FormControl,
@@ -36,27 +37,45 @@ type SimpleProductFormData = z.infer<typeof simpleProductSchema>;
 
 interface SimpleProductFormProps {
   onSuccess: () => void;
+  initialData?: {
+    id: number;
+    name: string;
+    unitCost: string;
+    cac: string;
+  } | null;
 }
 
-export function SimpleProductForm({ onSuccess }: SimpleProductFormProps) {
+export function SimpleProductForm({ onSuccess, initialData }: SimpleProductFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const isEditing = !!initialData;
 
   const form = useForm<SimpleProductFormData>({
     resolver: zodResolver(simpleProductSchema),
     defaultValues: {
-      name: '',
-      unitCost: '',
-      cac: '',
+      name: initialData?.name || '',
+      unitCost: initialData?.unitCost || '',
+      cac: initialData?.cac || '',
     },
   });
+
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        unitCost: initialData.unitCost,
+        cac: initialData.cac,
+      });
+    }
+  }, [initialData, form]);
 
   async function onSubmit(values: SimpleProductFormData) {
     setLoading(true);
     setError('');
 
     try {
-      const { createProduct } = await import('@/lib/actions/product-actions');
+      const { createProduct, updateProduct } = await import('@/lib/actions/product-actions');
       
       // Convert string values to numbers for the database
       const productData = {
@@ -65,16 +84,20 @@ export function SimpleProductForm({ onSuccess }: SimpleProductFormProps) {
         cac: values.cac,
       };
 
-      const result = await createProduct(productData);
+      const result = isEditing 
+        ? await updateProduct(initialData!.id, productData)
+        : await createProduct(productData);
       
       if (result.success) {
-        form.reset();
+        if (!isEditing) {
+          form.reset();
+        }
         onSuccess();
       } else {
-        setError(result.error || 'Failed to create product');
+        setError(result.error || `Failed to ${isEditing ? 'update' : 'create'} product`);
       }
     } catch (error) {
-      console.error('Failed to create product:', error);
+      console.error(`Failed to ${isEditing ? 'update' : 'create'} product:`, error);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -146,7 +169,10 @@ export function SimpleProductForm({ onSuccess }: SimpleProductFormProps) {
         )}
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Creating...' : 'Create Product'}
+          {loading 
+            ? (isEditing ? 'Updating...' : 'Creating...') 
+            : (isEditing ? 'Update Product' : 'Create Product')
+          }
         </Button>
       </form>
     </Form>

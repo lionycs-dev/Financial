@@ -25,37 +25,60 @@ import {
   revenueStreamSchema,
   type RevenueStreamFormData,
 } from '@/lib/schemas/forms';
-import { createRevenueStream } from '@/lib/actions/revenue-stream-actions';
-import { useState } from 'react';
+import { createRevenueStream, updateRevenueStream } from '@/lib/actions/revenue-stream-actions';
+import { useState, useEffect } from 'react';
 
 interface RevenueStreamFormProps {
   onSuccess: () => void;
+  initialData?: {
+    id: number;
+    name: string;
+    type: 'Subscription' | 'RepeatPurchase' | 'SinglePurchase' | 'RevenueOnly';
+    description?: string;
+  } | null;
 }
 
-export function RevenueStreamForm({ onSuccess }: RevenueStreamFormProps) {
+export function RevenueStreamForm({ onSuccess, initialData }: RevenueStreamFormProps) {
   const [loading, setLoading] = useState(false);
+  const isEditing = !!initialData;
 
   const form = useForm<RevenueStreamFormData>({
     resolver: zodResolver(revenueStreamSchema),
     defaultValues: {
-      name: '',
-      type: 'Subscription',
-      description: '',
+      name: initialData?.name || '',
+      type: initialData?.type || 'Subscription',
+      description: initialData?.description || '',
     },
   });
+
+  // Reset form when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        type: initialData.type,
+        description: initialData.description || '',
+      });
+    }
+  }, [initialData, form]);
 
   async function onSubmit(values: RevenueStreamFormData) {
     setLoading(true);
     try {
-      const result = await createRevenueStream(values);
+      const result = isEditing 
+        ? await updateRevenueStream(initialData!.id, values)
+        : await createRevenueStream(values);
+        
       if (result.success) {
-        form.reset();
+        if (!isEditing) {
+          form.reset();
+        }
         onSuccess();
       } else {
-        console.error('Failed to create revenue stream:', result.error);
+        console.error(`Failed to ${isEditing ? 'update' : 'create'} revenue stream:`, result.error);
       }
     } catch (error) {
-      console.error('Failed to create revenue stream:', error);
+      console.error(`Failed to ${isEditing ? 'update' : 'create'} revenue stream:`, error);
     } finally {
       setLoading(false);
     }
@@ -128,7 +151,10 @@ export function RevenueStreamForm({ onSuccess }: RevenueStreamFormProps) {
         />
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Creating...' : 'Create Revenue Stream'}
+          {loading 
+            ? (isEditing ? 'Updating...' : 'Creating...') 
+            : (isEditing ? 'Update Revenue Stream' : 'Create Revenue Stream')
+          }
         </Button>
       </form>
     </Form>

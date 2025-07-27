@@ -17,22 +17,6 @@ export const revenueTypeEnum = pgEnum('revenue_type', [
   'RevenueOnly',
 ]);
 
-export const frequencyEnum = pgEnum('frequency', [
-  'Monthly',
-  'Quarterly',
-  'SemiAnnual',
-  'Annual',
-  'OneTime',
-  'Custom',
-]);
-
-export const invoiceTimingEnum = pgEnum('invoice_timing', [
-  'Immediate',
-  'Upfront',
-  'Net30',
-  'Net60',
-  'Custom',
-]);
 
 // Users table
 export const users = pgTable('users', {
@@ -59,27 +43,11 @@ export const products = pgTable('products', {
   name: text('name').notNull(),
   unitCost: decimal('unit_cost', { precision: 10, scale: 2 }).notNull(),
   cac: decimal('cac', { precision: 10, scale: 2 }).notNull(),
+  pricingPlans: json('pricing_plans').notNull().default('[]'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Pricing Plan table
-export const pricingPlans = pgTable('pricing_plans', {
-  id: serial('id').primaryKey(),
-  productId: integer('product_id')
-    .references(() => products.id)
-    .notNull(),
-  name: text('name').notNull(),
-  priceFormula: text('price_formula').notNull(),
-  frequency: frequencyEnum('frequency').notNull(),
-  customFrequency: integer('custom_frequency'), // for custom frequency in months
-  invoiceTiming: invoiceTimingEnum('invoice_timing').notNull(),
-  customInvoiceTiming: integer('custom_invoice_timing'), // for custom timing in days
-  leadToCashLag: integer('lead_to_cash_lag').notNull(), // in days
-  escalatorPct: decimal('escalator_pct', { precision: 5, scale: 4 }), // percentage as decimal
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
 
 // Client Group table
 export const clientGroups = pgTable('client_groups', {

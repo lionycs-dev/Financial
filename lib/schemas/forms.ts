@@ -14,25 +14,6 @@ export const revenueStreamSchema = z.object({
 
 export type RevenueStreamFormData = z.infer<typeof revenueStreamSchema>;
 
-// Product Schema
-export const productSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  unitCost: z
-    .string()
-    .min(1, 'Unit cost is required')
-    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
-      message: 'Unit cost must be a valid positive number',
-    }),
-  cac: z
-    .string()
-    .min(1, 'CAC is required')
-    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
-      message: 'CAC must be a valid positive number',
-    }),
-});
-
-export type ProductFormData = z.infer<typeof productSchema>;
-
 // Pricing Plan Schema
 export const pricingPlanSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -64,6 +45,28 @@ export const pricingPlanSchema = z.object({
 });
 
 export type PricingPlanFormData = z.infer<typeof pricingPlanSchema>;
+
+// Product Schema
+export const productSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  unitCost: z
+    .string()
+    .min(1, 'Unit cost is required')
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+      message: 'Unit cost must be a valid positive number',
+    }),
+  cac: z
+    .string()
+    .min(1, 'CAC is required')
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+      message: 'CAC must be a valid positive number',
+    }),
+  pricingPlans: z
+    .array(pricingPlanSchema)
+    .min(1, 'At least one pricing plan is required'),
+});
+
+export type ProductFormData = z.infer<typeof productSchema>;
 
 // Product with Pricing Plans Schema (for nested form)
 export const productWithPricingPlansSchema = z.object({

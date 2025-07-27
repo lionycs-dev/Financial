@@ -21,29 +21,44 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  productWithPricingPlansSchema,
-  type ProductWithPricingPlansFormData,
+  productSchema,
+  type ProductFormData,
 } from '@/lib/schemas/forms';
-import { createProductWithPricingPlans } from '@/lib/actions/product-actions';
-import { useState } from 'react';
+import { createProduct, updateProduct } from '@/lib/actions/product-actions';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface ProductFormProps {
   onSuccess: () => void;
+  initialData?: {
+    id: number;
+    name: string;
+    unitCost: string;
+    cac: string;
+    pricingPlans?: Array<{
+      name: string;
+      priceFormula: string;
+      frequency: string;
+      customFrequency?: number;
+      invoiceTiming: string;
+      customInvoiceTiming?: number;
+      leadToCashLag: number;
+      escalatorPct?: string;
+    }>;
+  } | null;
 }
 
-export function ProductForm({ onSuccess }: ProductFormProps) {
+export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
+  const isEditing = !!initialData;
 
-  const form = useForm<ProductWithPricingPlansFormData>({
-    resolver: zodResolver(productWithPricingPlansSchema),
+  const form = useForm<ProductFormData>({
+    resolver: zodResolver(productSchema),
     defaultValues: {
-      product: {
-        name: '',
-        unitCost: '',
-        cac: '',
-      },
-      pricingPlans: [
+      name: initialData?.name || '',
+      unitCost: initialData?.unitCost || '',
+      cac: initialData?.cac || '',
+      pricingPlans: initialData?.pricingPlans || [
         {
           name: '',
           priceFormula: '',
@@ -63,19 +78,47 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
     name: 'pricingPlans',
   });
 
+  // Reset form when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        unitCost: initialData.unitCost,
+        cac: initialData.cac,
+        pricingPlans: initialData.pricingPlans || [
+          {
+            name: '',
+            priceFormula: '',
+            frequency: 'Monthly',
+            customFrequency: undefined,
+            invoiceTiming: 'Immediate',
+            customInvoiceTiming: undefined,
+            leadToCashLag: 0,
+            escalatorPct: '',
+          },
+        ],
+      });
+    }
+  }, [initialData, form]);
 
-  async function onSubmit(values: ProductWithPricingPlansFormData) {
+
+  async function onSubmit(values: ProductFormData) {
     setLoading(true);
     try {
-      const result = await createProductWithPricingPlans(values);
+      const result = isEditing 
+        ? await updateProduct(initialData!.id, values)
+        : await createProduct(values);
+        
       if (result.success) {
-        form.reset();
+        if (!isEditing) {
+          form.reset();
+        }
         onSuccess();
       } else {
-        console.error('Failed to create product:', result.error);
+        console.error(`Failed to ${isEditing ? 'update' : 'create'} product:`, result.error);
       }
     } catch (error) {
-      console.error('Failed to create product:', error);
+      console.error(`Failed to ${isEditing ? 'update' : 'create'} product:`, error);
     } finally {
       setLoading(false);
     }
@@ -90,7 +133,7 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
 
           <FormField
             control={form.control}
-            name="product.name"
+            name="name"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Product Name</FormLabel>
@@ -105,7 +148,7 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="product.unitCost"
+              name="unitCost"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Unit Cost</FormLabel>
@@ -124,7 +167,7 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
 
             <FormField
               control={form.control}
-              name="product.cac"
+              name="cac"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>CAC</FormLabel>
@@ -326,7 +369,10 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
         </div>
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Creating...' : 'Create Product with Pricing Plans'}
+          {loading 
+            ? (isEditing ? 'Updating...' : 'Creating...') 
+            : (isEditing ? 'Update Product' : 'Create Product')
+          }
         </Button>
       </form>
     </Form>
