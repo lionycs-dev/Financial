@@ -39,7 +39,7 @@ export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
         className="w-3 h-3 bg-purple-400 border-2 border-purple-600"
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
-          return targetType === 'product';
+          return targetType === 'product' || targetType === 'stream';
         }}
       />
     </div>

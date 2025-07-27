@@ -24,6 +24,16 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
       )}
 
       <Handle
+        type="target"
+        position={Position.Left}
+        className="w-3 h-3 bg-blue-400 border-2 border-blue-600"
+        isValidConnection={(connection) => {
+          const sourceType = connection.source?.split('-')[0];
+          return sourceType === 'clientgroup';
+        }}
+      />
+
+      <Handle
         type="source"
         position={Position.Right}
         className="w-3 h-3 bg-blue-400 border-2 border-blue-600"
