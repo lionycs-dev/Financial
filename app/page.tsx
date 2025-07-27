@@ -7,12 +7,16 @@ export default async function Home() {
   return (
     <div className="font-sans min-h-screen p-8">
       <main className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-center">Financial Dashboard</h1>
-        
+        <h1 className="text-4xl font-bold mb-8 text-center">
+          Financial Dashboard
+        </h1>
+
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">Users</h2>
           {users.length === 0 ? (
-            <p className="text-gray-600">No users found. Create your first user to get started.</p>
+            <p className="text-gray-600">
+              No users found. Create your first user to get started.
+            </p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {users.map((user) => (
