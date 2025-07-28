@@ -25,7 +25,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
 
       <Handle
         type="target"
-        position={Position.Left}
+        position={Position.Bottom}
         className="w-3 h-3 bg-green-600 border-2 border-green-800"
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
@@ -35,7 +35,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
 
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Bottom}
         className="w-3 h-3 bg-green-600 border-2 border-green-800"
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];

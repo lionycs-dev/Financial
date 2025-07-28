@@ -3,7 +3,7 @@
 import {
   EdgeProps,
   EdgeLabelRenderer,
-  getBezierPath,
+  getSmoothStepPath,
 } from 'reactflow';
 
 interface RelationshipEdgeData {
@@ -24,7 +24,7 @@ export function RelationshipEdge({
   style = {},
   data,
 }: EdgeProps<RelationshipEdgeData>) {
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,

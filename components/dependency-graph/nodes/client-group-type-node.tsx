@@ -25,7 +25,7 @@ export function ClientGroupTypeNode({ data }: NodeProps<ClientGroupTypeNodeData>
 
       <Handle
         type="target"
-        position={Position.Left}
+        position={Position.Top}
         className="w-3 h-3 bg-purple-600 border-2 border-purple-800"
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];

@@ -79,52 +79,60 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   const productNodes = nodes.filter(n => n.type === 'product');
   const clientGroupNodes = nodes.filter(n => n.type === 'clientGroup');
 
-  // Custom layout: manually position nodes
+  // Matrix layout with generous spacing for edge readability
   const layoutedNodes: Node[] = [];
   
-  // Client Group Types on the left
+  const groupTypeColumnX = 100;     // Column 1: Group Types (more margin from edge)
+  const clientGroupColumnX = 500;   // Column 2: Client Groups (bigger gap)
+  const matrixStartX = 900;         // Column 3+: Matrix starts here (more space)
+  const matrixStartY = 300;         // Start of matrix rows (more top space)
+  const cellWidth = 500;            // Width of each matrix cell (bigger cells)
+  const cellHeight = 400;           // Height of each matrix cell (taller cells)
+  
+  // Client Group Types in first column (row headers)
   clientGroupTypeNodes.forEach((node, index) => {
     layoutedNodes.push({
       ...node,
       position: {
-        x: 50,
-        y: 50 + (index * 200), // Vertical spacing
+        x: groupTypeColumnX, // First column
+        y: matrixStartY + (index * cellHeight), // Spaced vertically
       },
     });
   });
 
-  // Revenue Streams on the top
+  // Client Groups in second column
+  clientGroupNodes.forEach((node, index) => {
+    const groupTypeIndex = index % clientGroupTypeNodes.length; // Align with group types
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: clientGroupColumnX, // Second column
+        y: matrixStartY + (groupTypeIndex * cellHeight) + 80, // More offset from group type
+      },
+    });
+  });
+
+  // Revenue Streams across the top X-axis (column headers)
   streamNodes.forEach((node, index) => {
     layoutedNodes.push({
       ...node,
       position: {
-        x: 350 + (index * 300), // Horizontal spacing
-        y: 50,
+        x: matrixStartX + (index * cellWidth), // Spaced horizontally
+        y: 100, // More space from top edge
       },
     });
   });
 
-  // Products in the middle with bigger gaps
-  const productsPerRow = 3;
+  // Products distributed in matrix cells
   productNodes.forEach((node, index) => {
-    const row = Math.floor(index / productsPerRow);
-    const col = index % productsPerRow;
+    const streamIndex = index % streamNodes.length; // Cycle through streams
+    const groupTypeIndex = Math.floor(index / streamNodes.length) % clientGroupTypeNodes.length; // Cycle through group types
+    
     layoutedNodes.push({
       ...node,
       position: {
-        x: 350 + (col * 350), // Bigger horizontal gap between products
-        y: 250 + (row * 200), // Vertical spacing for product rows
-      },
-    });
-  });
-
-  // Client Groups on the right
-  clientGroupNodes.forEach((node, index) => {
-    layoutedNodes.push({
-      ...node,
-      position: {
-        x: 1200,
-        y: 250 + (index * 200), // Vertical spacing
+        x: matrixStartX + (streamIndex * cellWidth) + 100, // More offset inside matrix cell
+        y: matrixStartY + (groupTypeIndex * cellHeight) + 150, // More offset inside matrix cell
       },
     });
   });
