@@ -9,6 +9,7 @@ import {
 interface RelationshipEdgeData {
   relationship: string;
   properties?: Record<string, string | number>;
+  isAutomatic?: boolean;
   onEdit?: (id: string, data: RelationshipEdgeData) => void;
   onDelete?: (id: string) => void;
 }
@@ -32,6 +33,36 @@ export function RelationshipEdge({
     targetY,
     targetPosition,
   });
+
+  // Determine edge styling based on relationship type
+  const isAutomatic = data?.isAutomatic || false;
+  const relationshipType = data?.relationship || '';
+  
+  // Base styles
+  let strokeWidth = 2;
+  let strokeDasharray = '';
+  let stroke = '#6b7280'; // gray-500
+  let animation = '';
+  
+  if (isAutomatic) {
+    if (relationshipType === 'belongs_to') {
+      strokeWidth = 4; // Thicker for belongs_to
+      strokeDasharray = '8,4'; // Longer dashes
+      stroke = '#10b981'; // green-500
+    } else if (relationshipType === 'belongs_to_type') {
+      strokeWidth = 3;
+      strokeDasharray = '6,3';
+      stroke = '#8b5cf6'; // purple-500
+    }
+  } else {
+    // User-created relationships
+    if (relationshipType.includes('product')) {
+      // Product relationships get animation
+      animation = 'dash 2s linear infinite';
+      strokeDasharray = '10,5';
+      stroke = '#f59e0b'; // amber-500
+    }
+  }
 
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -82,11 +113,47 @@ export function RelationshipEdge({
 
   return (
     <>
+      <defs>
+        <marker
+          id={`arrowhead-${id}`}
+          markerWidth="10"
+          markerHeight="7"
+          refX="9"
+          refY="3.5"
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <polygon
+            points="0 0, 10 3.5, 0 7"
+            fill={stroke}
+          />
+        </marker>
+        {animation && (
+          <style>
+            {`
+              @keyframes dash {
+                to {
+                  stroke-dashoffset: -15;
+                }
+              }
+              .animated-${id} {
+                animation: ${animation};
+              }
+            `}
+          </style>
+        )}
+      </defs>
       <path
         id={id}
-        style={style}
-        className="react-flow__edge-path stroke-2 stroke-gray-400 hover:stroke-gray-600 cursor-context-menu"
+        style={{
+          ...style,
+          stroke,
+          strokeWidth,
+          strokeDasharray,
+        }}
+        className={`react-flow__edge-path hover:opacity-80 cursor-context-menu ${animation ? `animated-${id}` : ''}`}
         d={edgePath}
+        markerEnd={`url(#arrowhead-${id})`}
         onContextMenu={onContextMenu}
       />
       <EdgeLabelRenderer>
