@@ -12,6 +12,7 @@ import ReactFlow, {
   Background,
   MiniMap,
   ReactFlowProvider,
+  NodeChange,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -58,6 +59,31 @@ const CLIENT_GROUP_TYPE_ID_TO_STRING: Record<number, string> = {
   3: 'DTC',
 };
 
+// Save node positions to localStorage
+const saveLayoutToStorage = (nodes: Node[]) => {
+  try {
+    const positions = nodes.reduce((acc, node) => {
+      acc[node.id] = node.position;
+      return acc;
+    }, {} as Record<string, { x: number; y: number }>);
+    
+    localStorage.setItem('dependency-graph-layout', JSON.stringify(positions));
+  } catch (error) {
+    console.warn('Failed to save layout to localStorage:', error);
+  }
+};
+
+// Load node positions from localStorage
+const loadLayoutFromStorage = (): Record<string, { x: number; y: number }> | null => {
+  try {
+    const stored = localStorage.getItem('dependency-graph-layout');
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.warn('Failed to load layout from localStorage:', error);
+    return null;
+  }
+};
+
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   // Filter edges to only include those between existing nodes
   const nodeIds = new Set(nodes.map((node) => node.id));
@@ -72,78 +98,84 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     return hasSource && hasTarget;
   });
 
-  console.log(
-    'ELK input nodes:',
-    nodes.map((n) => n.id)
-  );
-  console.log(
-    'ELK input valid edges:',
-    validEdges.map((e) => ({ id: e.id, source: e.source, target: e.target }))
-  );
+  // Try to load saved positions first
+  const savedPositions = loadLayoutFromStorage();
+  
+  if (savedPositions) {
+    // Use saved positions if available
+    const layoutedNodes = nodes.map(node => {
+      const savedPosition = savedPositions[node.id];
+      return {
+        ...node,
+        position: savedPosition || node.position || { x: 0, y: 0 },
+      };
+    });
+    
+    return Promise.resolve({
+      nodes: layoutedNodes,
+      edges: validEdges,
+    });
+  }
 
-  // Separate nodes by type for custom positioning
-  const clientGroupTypeNodes = nodes.filter(
-    (n) => n.type === 'clientGroupType'
-  );
-  const streamNodes = nodes.filter((n) => n.type === 'stream');
-  const productNodes = nodes.filter((n) => n.type === 'product');
-  const clientGroupNodes = nodes.filter((n) => n.type === 'clientGroup');
+  // Fallback to default structured layout if no saved positions
+  // Separate nodes by type for structured layout
+  const streamNodes = nodes.filter(node => node.type === 'stream');
+  const productNodes = nodes.filter(node => node.type === 'product');
+  const clientGroupTypeNodes = nodes.filter(node => node.type === 'clientGroupType');
+  const clientGroupNodes = nodes.filter(node => node.type === 'clientGroup');
 
-  // Matrix layout with generous spacing for edge readability
   const layoutedNodes: Node[] = [];
+  
+  // Layout parameters
+  const horizontalSpacing = 280;
+  const verticalSpacing = 180;
+  const startX = 100;
+  const startY = 100;
 
-  const groupTypeColumnX = 100; // Column 1: Group Types (more margin from edge)
-  const clientGroupColumnX = 500; // Column 2: Client Groups (bigger gap)
-  const matrixStartX = 900; // Column 3+: Matrix starts here (more space)
-  const matrixStartY = 300; // Start of matrix rows (more top space)
-  const cellWidth = 500; // Width of each matrix cell (bigger cells)
-  const cellHeight = 400; // Height of each matrix cell (taller cells)
-
-  // Client Group Types in first column (row headers)
-  clientGroupTypeNodes.forEach((node, index) => {
-    layoutedNodes.push({
-      ...node,
-      position: {
-        x: groupTypeColumnX, // First column
-        y: matrixStartY + index * cellHeight, // Spaced vertically
-      },
-    });
-  });
-
-  // Client Groups in second column
-  clientGroupNodes.forEach((node, index) => {
-    const groupTypeIndex = index % clientGroupTypeNodes.length; // Align with group types
-    layoutedNodes.push({
-      ...node,
-      position: {
-        x: clientGroupColumnX, // Second column
-        y: matrixStartY + groupTypeIndex * cellHeight + 80, // More offset from group type
-      },
-    });
-  });
-
-  // Revenue Streams across the top X-axis (column headers)
+  // Position revenue streams on top row
   streamNodes.forEach((node, index) => {
     layoutedNodes.push({
       ...node,
       position: {
-        x: matrixStartX + index * cellWidth, // Spaced horizontally
-        y: 100, // More space from top edge
+        x: startX + horizontalSpacing * 2 + index * horizontalSpacing, // Start after client groups column
+        y: startY,
       },
     });
   });
 
-  // Products distributed in matrix cells
-  productNodes.forEach((node, index) => {
-    const streamIndex = index % streamNodes.length; // Cycle through streams
-    const groupTypeIndex =
-      Math.floor(index / streamNodes.length) % clientGroupTypeNodes.length; // Cycle through group types
-
+  // Position client group types on left column (top part)
+  clientGroupTypeNodes.forEach((node, index) => {
     layoutedNodes.push({
       ...node,
       position: {
-        x: matrixStartX + streamIndex * cellWidth + 100, // More offset inside matrix cell
-        y: matrixStartY + groupTypeIndex * cellHeight + 150, // More offset inside matrix cell
+        x: startX,
+        y: startY + verticalSpacing * 2 + index * verticalSpacing, // Start after some spacing
+      },
+    });
+  });
+
+  // Position client groups on left column (below client group types)
+  clientGroupNodes.forEach((node, index) => {
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: startX,
+        y: startY + verticalSpacing * 2 + clientGroupTypeNodes.length * verticalSpacing + verticalSpacing + index * verticalSpacing,
+      },
+    });
+  });
+
+  // Position products in the middle area
+  const productsPerRow = 3;
+  productNodes.forEach((node, index) => {
+    const col = index % productsPerRow;
+    const row = Math.floor(index / productsPerRow);
+    
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: startX + horizontalSpacing * 2 + col * horizontalSpacing, // Start in middle column
+        y: startY + verticalSpacing * 2 + row * verticalSpacing, // Start below streams
       },
     });
   });
@@ -157,6 +189,39 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 function DependencyGraphInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // Custom nodes change handler that auto-saves layout
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    onNodesChange(changes);
+    
+    // Check if any changes involve position updates
+    const hasPositionChanges = changes.some(change => change.type === 'position');
+    
+    if (hasPositionChanges) {
+      // Save layout after a short delay to debounce saves during dragging
+      setTimeout(() => {
+        setNodes((currentNodes) => {
+          saveLayoutToStorage(currentNodes);
+          return currentNodes;
+        });
+      }, 300);
+    }
+  }, [onNodesChange, setNodes]);
+
+  // Reset layout to default and clear saved positions
+  const resetLayout = useCallback(async () => {
+    try {
+      localStorage.removeItem('dependency-graph-layout');
+      
+      // Reapply default layout
+      const layouted = await getLayoutedElements(nodes, edges);
+      if (layouted) {
+        setNodes(layouted.nodes);
+      }
+    } catch (error) {
+      console.error('Failed to reset layout:', error);
+    }
+  }, [nodes, edges, setNodes]);
 
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -1023,17 +1088,28 @@ function DependencyGraphInner() {
   return (
     <div className="h-full w-full">
       <div className="p-4 border-b bg-white">
-        <h1 className="text-2xl font-bold">Dependency Graph</h1>
-        <p className="text-muted-foreground">
-          Visual representation of relationships between Revenue Streams,
-          Products, and Client Groups
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold">Dependency Graph</h1>
+            <p className="text-muted-foreground">
+              Visual representation of relationships between Revenue Streams,
+              Products, and Client Groups
+            </p>
+          </div>
+          <button
+            onClick={resetLayout}
+            className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            title="Reset to default layout and clear saved positions"
+          >
+            Reset Layout
+          </button>
+        </div>
       </div>
       <div className="h-[calc(100%-80px)]">
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={onNodesChange}
+          onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           isValidConnection={isValidConnection}
