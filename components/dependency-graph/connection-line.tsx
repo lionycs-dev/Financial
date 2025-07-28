@@ -27,13 +27,11 @@ export function ConnectionLine({
     <g>
       <path
         fill="none"
-        stroke="#22c55e"
+        stroke="#6b7280"
         strokeWidth={2}
-        strokeDasharray="4,4"
-        className="animated"
         d={edgePath}
       />
-      <circle cx={toX} cy={toY} fill="#22c55e" r={3} />
+      <circle cx={toX} cy={toY} fill="#6b7280" r={3} />
     </g>
   );
 }
