@@ -24,38 +24,27 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        id="belongs_to"
+        id={`belongs_to`}
         className="w-3 h-3 bg-green-800 border-2 border-green-900"
         style={{ visibility: 'hidden' }}
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
           return targetType === 'product';
         }}
+        isConnectable={false}
       />
 
       {/* General target handle */}
       <Handle
         type="target"
         position={Position.Left}
-        id="general"
+        id={`stream_target`}
         className="w-3 h-3 bg-green-600 border-2 border-green-800"
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
           return (
             sourceType === 'clientgroup' || sourceType === 'clientgrouptype'
           );
-        }}
-      />
-
-      {/* General source handle */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="general_source"
-        className="w-3 h-3 bg-green-600 border-2 border-green-800"
-        isValidConnection={(connection) => {
-          const targetType = connection.target?.split('-')[0];
-          return targetType === 'clientgrouptype';
         }}
       />
     </div>

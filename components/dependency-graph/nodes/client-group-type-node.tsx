@@ -26,23 +26,21 @@ export function ClientGroupTypeNode({
       )}
 
       <Handle
-        type="target"
-        position={Position.Top}
+        type="source"
+        id={`clientgrouptype_to_clientgroup`}
+        position={Position.Bottom}
         className="w-3 h-3 bg-purple-600 border-2 border-purple-800"
-        isValidConnection={(connection) => {
-          const sourceType = connection.source?.split('-')[0];
-          return sourceType === 'product' || sourceType === 'stream';
-        }}
+        style={{ visibility: 'hidden' }}
       />
 
       <Handle
         type="source"
+        id={`clientgrouptype_to_stream_product`}
         position={Position.Right}
         className="w-3 h-3 bg-purple-600 border-2 border-purple-800"
-        style={{ visibility: 'hidden' }}
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
-          return targetType === 'clientgroup' || targetType === 'stream';
+          return targetType === 'stream' || targetType === 'product';
         }}
       />
     </div>

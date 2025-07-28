@@ -57,7 +57,7 @@ export function RelationshipEdge({
       return {
         strokeWidth: 2,
         strokeDasharray: '',
-        stroke: '#3b82f6',
+        // stroke: '#3b82f6',
         showArrow: false,
       };
     }

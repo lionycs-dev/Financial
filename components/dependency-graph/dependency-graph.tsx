@@ -46,9 +46,9 @@ const EDGE_TYPES = {
 
 // Client Group Type ID mapping (since we use string IDs like 'B2B' but DB expects numbers)
 const CLIENT_GROUP_TYPE_IDS = {
-  'B2B': 1,
-  'B2C': 2,
-  'DTC': 3,
+  B2B: 1,
+  B2C: 2,
+  DTC: 3,
 } as const;
 
 // Reverse mapping from numeric ID to string ID
@@ -60,42 +60,52 @@ const CLIENT_GROUP_TYPE_ID_TO_STRING: Record<number, string> = {
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   // Filter edges to only include those between existing nodes
-  const nodeIds = new Set(nodes.map(node => node.id));
-  const validEdges = edges.filter(edge => {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const validEdges = edges.filter((edge) => {
     const hasSource = nodeIds.has(edge.source);
     const hasTarget = nodeIds.has(edge.target);
     if (!hasSource || !hasTarget) {
-      console.warn(`Filtering out edge ${edge.id}: source=${edge.source} (exists: ${hasSource}), target=${edge.target} (exists: ${hasTarget})`);
+      console.warn(
+        `Filtering out edge ${edge.id}: source=${edge.source} (exists: ${hasSource}), target=${edge.target} (exists: ${hasTarget})`
+      );
     }
     return hasSource && hasTarget;
   });
 
-  console.log('ELK input nodes:', nodes.map(n => n.id));
-  console.log('ELK input valid edges:', validEdges.map(e => ({ id: e.id, source: e.source, target: e.target })));
+  console.log(
+    'ELK input nodes:',
+    nodes.map((n) => n.id)
+  );
+  console.log(
+    'ELK input valid edges:',
+    validEdges.map((e) => ({ id: e.id, source: e.source, target: e.target }))
+  );
 
   // Separate nodes by type for custom positioning
-  const clientGroupTypeNodes = nodes.filter(n => n.type === 'clientGroupType');
-  const streamNodes = nodes.filter(n => n.type === 'stream'); 
-  const productNodes = nodes.filter(n => n.type === 'product');
-  const clientGroupNodes = nodes.filter(n => n.type === 'clientGroup');
+  const clientGroupTypeNodes = nodes.filter(
+    (n) => n.type === 'clientGroupType'
+  );
+  const streamNodes = nodes.filter((n) => n.type === 'stream');
+  const productNodes = nodes.filter((n) => n.type === 'product');
+  const clientGroupNodes = nodes.filter((n) => n.type === 'clientGroup');
 
   // Matrix layout with generous spacing for edge readability
   const layoutedNodes: Node[] = [];
-  
-  const groupTypeColumnX = 100;     // Column 1: Group Types (more margin from edge)
-  const clientGroupColumnX = 500;   // Column 2: Client Groups (bigger gap)
-  const matrixStartX = 900;         // Column 3+: Matrix starts here (more space)
-  const matrixStartY = 300;         // Start of matrix rows (more top space)
-  const cellWidth = 500;            // Width of each matrix cell (bigger cells)
-  const cellHeight = 400;           // Height of each matrix cell (taller cells)
-  
+
+  const groupTypeColumnX = 100; // Column 1: Group Types (more margin from edge)
+  const clientGroupColumnX = 500; // Column 2: Client Groups (bigger gap)
+  const matrixStartX = 900; // Column 3+: Matrix starts here (more space)
+  const matrixStartY = 300; // Start of matrix rows (more top space)
+  const cellWidth = 500; // Width of each matrix cell (bigger cells)
+  const cellHeight = 400; // Height of each matrix cell (taller cells)
+
   // Client Group Types in first column (row headers)
   clientGroupTypeNodes.forEach((node, index) => {
     layoutedNodes.push({
       ...node,
       position: {
         x: groupTypeColumnX, // First column
-        y: matrixStartY + (index * cellHeight), // Spaced vertically
+        y: matrixStartY + index * cellHeight, // Spaced vertically
       },
     });
   });
@@ -107,7 +117,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
       ...node,
       position: {
         x: clientGroupColumnX, // Second column
-        y: matrixStartY + (groupTypeIndex * cellHeight) + 80, // More offset from group type
+        y: matrixStartY + groupTypeIndex * cellHeight + 80, // More offset from group type
       },
     });
   });
@@ -117,7 +127,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     layoutedNodes.push({
       ...node,
       position: {
-        x: matrixStartX + (index * cellWidth), // Spaced horizontally
+        x: matrixStartX + index * cellWidth, // Spaced horizontally
         y: 100, // More space from top edge
       },
     });
@@ -126,13 +136,14 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   // Products distributed in matrix cells
   productNodes.forEach((node, index) => {
     const streamIndex = index % streamNodes.length; // Cycle through streams
-    const groupTypeIndex = Math.floor(index / streamNodes.length) % clientGroupTypeNodes.length; // Cycle through group types
-    
+    const groupTypeIndex =
+      Math.floor(index / streamNodes.length) % clientGroupTypeNodes.length; // Cycle through group types
+
     layoutedNodes.push({
       ...node,
       position: {
-        x: matrixStartX + (streamIndex * cellWidth) + 100, // More offset inside matrix cell
-        y: matrixStartY + (groupTypeIndex * cellHeight) + 150, // More offset inside matrix cell
+        x: matrixStartX + streamIndex * cellWidth + 100, // More offset inside matrix cell
+        y: matrixStartY + groupTypeIndex * cellHeight + 150, // More offset inside matrix cell
       },
     });
   });
@@ -173,7 +184,7 @@ function DependencyGraphInner() {
     // Define valid connection patterns
     const validConnections = [
       { source: 'product', target: 'clientgroup' }, // Product can connect to ClientGroup
-      { source: 'clientgroup', target: 'product' }, // ClientGroup can connect to Product  
+      { source: 'clientgroup', target: 'product' }, // ClientGroup can connect to Product
       { source: 'clientgroup', target: 'stream' }, // ClientGroup can connect to Revenue Stream
       { source: 'product', target: 'product' }, // Product can convert to Product
       { source: 'product', target: 'clientgrouptype' }, // Product can connect to ClientGroupType
@@ -193,18 +204,34 @@ function DependencyGraphInner() {
         const rawSourceType = params.source.split('-')[0];
         const rawTargetType = params.target.split('-')[0];
 
-        const sourceType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType' =
+        const sourceType:
+          | 'stream'
+          | 'product'
+          | 'clientGroup'
+          | 'clientGroupType' =
           rawSourceType === 'clientgroup'
             ? 'clientGroup'
             : rawSourceType === 'clientgrouptype'
-            ? 'clientGroupType'
-            : (rawSourceType as 'stream' | 'product' | 'clientGroup' | 'clientGroupType');
-        const targetType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType' =
+              ? 'clientGroupType'
+              : (rawSourceType as
+                  | 'stream'
+                  | 'product'
+                  | 'clientGroup'
+                  | 'clientGroupType');
+        const targetType:
+          | 'stream'
+          | 'product'
+          | 'clientGroup'
+          | 'clientGroupType' =
           rawTargetType === 'clientgroup'
             ? 'clientGroup'
             : rawTargetType === 'clientgrouptype'
-            ? 'clientGroupType'
-            : (rawTargetType as 'stream' | 'product' | 'clientGroup' | 'clientGroupType');
+              ? 'clientGroupType'
+              : (rawTargetType as
+                  | 'stream'
+                  | 'product'
+                  | 'clientGroup'
+                  | 'clientGroupType');
 
         setConnectionData({
           source: params.source,
@@ -273,12 +300,16 @@ function DependencyGraphInner() {
             finalSourceType = 'product';
             finalSourceId = parseInt(connectionData.source.split('-')[1]);
             finalTargetType = 'clientGroupType';
-            const targetStringId = connectionData.target.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+            const targetStringId = connectionData.target.split(
+              '-'
+            )[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
             finalTargetId = CLIENT_GROUP_TYPE_IDS[targetStringId];
           } else if (relationshipData.type === 'clientgrouptype_to_product') {
             // Client group type to product - clientGroupType is source, product is target
             finalSourceType = 'clientGroupType';
-            const sourceStringId = connectionData.source.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+            const sourceStringId = connectionData.source.split(
+              '-'
+            )[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
             finalSourceId = CLIENT_GROUP_TYPE_IDS[sourceStringId];
             finalTargetType = 'product';
             finalTargetId = parseInt(connectionData.target.split('-')[1]);
@@ -287,14 +318,18 @@ function DependencyGraphInner() {
             if (connectionData.sourceType === 'clientGroupType') {
               // User dragged from clientgrouptype to stream
               finalSourceType = 'clientGroupType';
-              const sourceStringId = connectionData.source.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+              const sourceStringId = connectionData.source.split(
+                '-'
+              )[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
               finalSourceId = CLIENT_GROUP_TYPE_IDS[sourceStringId];
               finalTargetType = 'stream';
               finalTargetId = parseInt(connectionData.target.split('-')[1]);
             } else {
               // User dragged from stream to clientgrouptype, reverse it
               finalSourceType = 'clientGroupType';
-              const targetStringId = connectionData.target.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+              const targetStringId = connectionData.target.split(
+                '-'
+              )[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
               finalSourceId = CLIENT_GROUP_TYPE_IDS[targetStringId];
               finalTargetType = 'stream';
               finalTargetId = parseInt(connectionData.source.split('-')[1]);
@@ -351,19 +386,36 @@ function DependencyGraphInner() {
             } else {
               // Create new edge with the relationship ID from the server response
               if (result.data) {
-                // Determine the correct target handle based on relationship type
+                // Determine the correct source and target handles based on relationship type
+                let sourceHandle: string | undefined;
                 let targetHandle: string | undefined;
+                
                 if (relationshipData.type === 'belongs_to') {
-                  targetHandle = 'belongs_to';
-                } else {
-                  // All other relationships go to the general handle
-                  targetHandle = 'general';
+                  sourceHandle = 'belongs_to';
+                  const productId = connectionData.target.split('-')[1];
+                  targetHandle = `belongs_to_${productId}`;
+                } else if (relationshipData.type === 'clientgroup_to_product') {
+                  sourceHandle = 'clientgroup_to_stream_product';
+                  targetHandle = 'product_target';
+                } else if (relationshipData.type === 'clientgroup_to_stream') {
+                  sourceHandle = 'clientgroup_to_stream_product';
+                  targetHandle = 'stream_target';
+                } else if (relationshipData.type === 'clientgrouptype_to_product') {
+                  sourceHandle = 'clientgrouptype_to_stream_product';
+                  targetHandle = 'product_target';
+                } else if (relationshipData.type === 'clientgrouptype_to_stream') {
+                  sourceHandle = 'clientgrouptype_to_stream_product';
+                  targetHandle = 'stream_target';
+                } else if (relationshipData.type === 'product_conversion') {
+                  sourceHandle = 'product_to_product';
+                  targetHandle = 'product_target';
                 }
 
                 const newEdge: Edge = {
                   id: `relationship-${result.data.id}`,
                   source: connectionData.source,
                   target: connectionData.target,
+                  sourceHandle,
                   targetHandle,
                   type: 'relationship',
                   data: {
@@ -444,7 +496,7 @@ function DependencyGraphInner() {
         const newEdges: Edge[] = [];
 
         // Create nodes without positioning (ELK will handle layout)
-        
+
         // Revenue Streams
         streams.forEach((stream) => {
           newNodes.push({
@@ -482,7 +534,7 @@ function DependencyGraphInner() {
               source: `stream-${product.productStreamId}`,
               sourceHandle: 'belongs_to', // Use the specific belongs_to source handle
               target: `product-${product.id}`,
-              targetHandle: 'belongs_to', // Use the specific belongs_to target handle
+              targetHandle: `belongs_to_${product.id}`, // Use the specific product belongs_to target handle
               type: 'relationship',
               style: { stroke: '#10b981', strokeDasharray: '5,5' }, // Green dashed line for automatic relationships
               data: {
@@ -498,9 +550,24 @@ function DependencyGraphInner() {
 
         // Client Group Types - hardcoded B2B, B2C, DTC
         const clientGroupTypes = [
-          { id: 'B2B', name: 'Business to Business', type: 'B2B' as const, description: 'Companies selling to other companies' },
-          { id: 'B2C', name: 'Business to Consumer', type: 'B2C' as const, description: 'Companies selling directly to consumers' },
-          { id: 'DTC', name: 'Direct to Consumer', type: 'DTC' as const, description: 'Brands selling directly to end customers' },
+          {
+            id: 'B2B',
+            name: 'Business to Business',
+            type: 'B2B' as const,
+            description: 'Companies selling to other companies',
+          },
+          {
+            id: 'B2C',
+            name: 'Business to Consumer',
+            type: 'B2C' as const,
+            description: 'Companies selling directly to consumers',
+          },
+          {
+            id: 'DTC',
+            name: 'Direct to Consumer',
+            type: 'DTC' as const,
+            description: 'Brands selling directly to end customers',
+          },
         ];
 
         clientGroupTypes.forEach((groupType) => {
@@ -532,16 +599,18 @@ function DependencyGraphInner() {
             },
           });
 
-          // Add automatic edge from client group to its type
+          // Add automatic edge from client group type to client group
           newEdges.push({
             id: `auto-clientgroup-type-${group.id}`,
             source: `clientgrouptype-${group.type}`,
+            sourceHandle: 'clientgrouptype_to_clientgroup',
             target: `clientgroup-${group.id}`,
+            targetHandle: 'clientgrouptype_target',
             type: 'relationship',
             style: { stroke: '#8b5cf6', strokeDasharray: '3,3' }, // Purple dashed line for type relationships
             data: {
               relationship: 'belongs_to_type',
-              properties: { },
+              properties: {},
               isAutomatic: true,
               onEdit: () => {}, // No edit for automatic relationships
               onDelete: () => {}, // No delete for automatic relationships
@@ -556,46 +625,68 @@ function DependencyGraphInner() {
             relationship.sourceType === 'clientGroup'
               ? 'clientgroup'
               : relationship.sourceType === 'clientGroupType'
-              ? 'clientgrouptype'
-              : relationship.sourceType;
+                ? 'clientgrouptype'
+                : relationship.sourceType;
           const targetNodeType =
             relationship.targetType === 'clientGroup'
               ? 'clientgroup'
               : relationship.targetType === 'clientGroupType'
-              ? 'clientgrouptype'
-              : relationship.targetType;
+                ? 'clientgrouptype'
+                : relationship.targetType;
 
           // Handle client group type ID mapping
           let sourceId: string;
           let targetId: string;
-          
+
           if (relationship.sourceType === 'clientGroupType') {
-            const stringId = CLIENT_GROUP_TYPE_ID_TO_STRING[relationship.sourceId];
+            const stringId =
+              CLIENT_GROUP_TYPE_ID_TO_STRING[relationship.sourceId];
             sourceId = `${sourceNodeType}-${stringId}`;
           } else {
             sourceId = `${sourceNodeType}-${relationship.sourceId}`;
           }
-          
+
           if (relationship.targetType === 'clientGroupType') {
-            const stringId = CLIENT_GROUP_TYPE_ID_TO_STRING[relationship.targetId];
+            const stringId =
+              CLIENT_GROUP_TYPE_ID_TO_STRING[relationship.targetId];
             targetId = `${targetNodeType}-${stringId}`;
           } else {
             targetId = `${targetNodeType}-${relationship.targetId}`;
           }
 
-          // Determine the correct target handle based on relationship type
+          // Determine the correct source and target handles based on relationship type
+          let sourceHandle: string | undefined;
           let targetHandle: string | undefined;
+          
           if (relationship.relationshipType === 'belongs_to') {
-            targetHandle = 'belongs_to';
-          } else {
-            // All other relationships go to the general handle
-            targetHandle = 'general';
+            sourceHandle = 'belongs_to';
+            const productId = relationship.targetId;
+            targetHandle = `belongs_to_${productId}`;
+          } else if (relationship.relationshipType === 'clientgroup_to_product') {
+            sourceHandle = 'clientgroup_to_stream_product';
+            targetHandle = 'product_target';
+          } else if (relationship.relationshipType === 'clientgroup_to_stream') {
+            sourceHandle = 'clientgroup_to_stream_product';
+            targetHandle = 'stream_target';
+          } else if (relationship.relationshipType === 'clientgrouptype_to_product') {
+            sourceHandle = 'clientgrouptype_to_stream_product';
+            targetHandle = 'product_target';
+          } else if (relationship.relationshipType === 'clientgrouptype_to_stream') {
+            sourceHandle = 'clientgrouptype_to_stream_product';
+            targetHandle = 'stream_target';
+          } else if (relationship.relationshipType === 'product_conversion') {
+            sourceHandle = 'product_to_product';
+            targetHandle = 'product_target';
+          } else if (relationship.relationshipType === 'belongs_to_type') {
+            sourceHandle = 'clientgrouptype_to_clientgroup';
+            targetHandle = 'clientgrouptype_target';
           }
 
           newEdges.push({
             id: `relationship-${relationship.id}`,
             source: sourceId,
             target: targetId,
+            sourceHandle,
             targetHandle,
             type: 'relationship',
             data: {
@@ -614,22 +705,22 @@ function DependencyGraphInner() {
                   relationship.sourceType === 'clientGroup'
                     ? 'clientGroup'
                     : relationship.sourceType === 'clientGroupType'
-                    ? 'clientGroupType'
-                    : (relationship.sourceType as
-                        | 'stream'
-                        | 'product'
-                        | 'clientGroup'
-                        | 'clientGroupType');
+                      ? 'clientGroupType'
+                      : (relationship.sourceType as
+                          | 'stream'
+                          | 'product'
+                          | 'clientGroup'
+                          | 'clientGroupType');
                 const targetType =
                   relationship.targetType === 'clientGroup'
                     ? 'clientGroup'
                     : relationship.targetType === 'clientGroupType'
-                    ? 'clientGroupType'
-                    : (relationship.targetType as
-                        | 'stream'
-                        | 'product'
-                        | 'clientGroup'
-                        | 'clientGroupType');
+                      ? 'clientGroupType'
+                      : (relationship.targetType as
+                          | 'stream'
+                          | 'product'
+                          | 'clientGroup'
+                          | 'clientGroupType');
 
                 setEditingRelationship({ id: edgeId, data: edgeData });
                 setConnectionData({
@@ -670,10 +761,20 @@ function DependencyGraphInner() {
 
         // Debug logging
         console.log('Total nodes created:', newNodes.length);
-        console.log('Node IDs:', newNodes.map(n => n.id));
+        console.log(
+          'Node IDs:',
+          newNodes.map((n) => n.id)
+        );
         console.log('Total edges created:', newEdges.length);
-        console.log('Edge details:', newEdges.map(e => ({ id: e.id, source: e.source, target: e.target })));
-        
+        console.log(
+          'Edge details:',
+          newEdges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+          }))
+        );
+
         // Apply ELK layout
         try {
           const layouted = await getLayoutedElements(newNodes, newEdges);
@@ -685,7 +786,10 @@ function DependencyGraphInner() {
             console.warn('ELK layout failed, using fallback positioning');
             const fallbackNodes = newNodes.map((node, index) => ({
               ...node,
-              position: { x: (index % 4) * 300 + 50, y: Math.floor(index / 4) * 150 + 50 },
+              position: {
+                x: (index % 4) * 300 + 50,
+                y: Math.floor(index / 4) * 150 + 50,
+              },
             }));
             setNodes(fallbackNodes);
             setEdges(newEdges);
@@ -695,7 +799,10 @@ function DependencyGraphInner() {
           // Fallback to manual layout
           const fallbackNodes = newNodes.map((node, index) => ({
             ...node,
-            position: { x: (index % 4) * 300 + 50, y: Math.floor(index / 4) * 150 + 50 },
+            position: {
+              x: (index % 4) * 300 + 50,
+              y: Math.floor(index / 4) * 150 + 50,
+            },
           }));
           setNodes(fallbackNodes);
           setEdges(newEdges);
@@ -729,7 +836,7 @@ function DependencyGraphInner() {
             );
 
             // Create nodes for auto-refresh (ELK will handle layout)
-            
+
             // Revenue Streams
             streams.forEach((stream) => {
               newNodes.push({
@@ -767,7 +874,7 @@ function DependencyGraphInner() {
                   source: `stream-${product.productStreamId}`,
                   sourceHandle: 'belongs_to', // Use the specific belongs_to source handle
                   target: `product-${product.id}`,
-                  targetHandle: 'belongs_to', // Use the specific belongs_to target handle
+                  targetHandle: `belongs_to_${product.id}`, // Use the specific product belongs_to target handle
                   type: 'relationship',
                   style: { stroke: '#10b981', strokeDasharray: '5,5' }, // Green dashed line for automatic relationships
                   data: {
@@ -783,9 +890,24 @@ function DependencyGraphInner() {
 
             // Client Group Types - hardcoded B2B, B2C, DTC
             const clientGroupTypes = [
-              { id: 'B2B', name: 'Business to Business', type: 'B2B' as const, description: 'Companies selling to other companies' },
-              { id: 'B2C', name: 'Business to Consumer', type: 'B2C' as const, description: 'Companies selling directly to consumers' },
-              { id: 'DTC', name: 'Direct to Consumer', type: 'DTC' as const, description: 'Brands selling directly to end customers' },
+              {
+                id: 'B2B',
+                name: 'Business to Business',
+                type: 'B2B' as const,
+                description: 'Companies selling to other companies',
+              },
+              {
+                id: 'B2C',
+                name: 'Business to Consumer',
+                type: 'B2C' as const,
+                description: 'Companies selling directly to consumers',
+              },
+              {
+                id: 'DTC',
+                name: 'Direct to Consumer',
+                type: 'DTC' as const,
+                description: 'Brands selling directly to end customers',
+              },
             ];
 
             clientGroupTypes.forEach((groupType) => {
@@ -817,16 +939,18 @@ function DependencyGraphInner() {
                 },
               });
 
-              // Add automatic edge from client group to its type
+              // Add automatic edge from client group type to client group
               existingCustomEdges.push({
                 id: `auto-clientgroup-type-${group.id}`,
                 source: `clientgrouptype-${group.type}`,
+                sourceHandle: 'clientgrouptype_to_clientgroup',
                 target: `clientgroup-${group.id}`,
+                targetHandle: 'clientgrouptype_target',
                 type: 'relationship',
                 style: { stroke: '#8b5cf6', strokeDasharray: '3,3' }, // Purple dashed line for type relationships
                 data: {
                   relationship: 'belongs_to_type',
-                  properties: { },
+                  properties: {},
                   isAutomatic: true,
                   onEdit: () => {}, // No edit for automatic relationships
                   onDelete: () => {}, // No delete for automatic relationships
@@ -836,26 +960,40 @@ function DependencyGraphInner() {
 
             // Apply ELK layout for auto-refresh
             try {
-              const layouted = await getLayoutedElements(newNodes, existingCustomEdges);
+              const layouted = await getLayoutedElements(
+                newNodes,
+                existingCustomEdges
+              );
               if (layouted) {
                 setNodes(layouted.nodes);
                 setEdges(layouted.edges);
               } else {
                 // Fallback to manual layout if ELK fails
-                console.warn('ELK layout failed on auto-refresh, using fallback positioning');
+                console.warn(
+                  'ELK layout failed on auto-refresh, using fallback positioning'
+                );
                 const fallbackNodes = newNodes.map((node, index) => ({
                   ...node,
-                  position: { x: (index % 4) * 300 + 50, y: Math.floor(index / 4) * 150 + 50 },
+                  position: {
+                    x: (index % 4) * 300 + 50,
+                    y: Math.floor(index / 4) * 150 + 50,
+                  },
                 }));
                 setNodes(fallbackNodes);
                 setEdges(existingCustomEdges);
               }
             } catch (error) {
-              console.error('Error applying ELK layout on auto-refresh:', error);
+              console.error(
+                'Error applying ELK layout on auto-refresh:',
+                error
+              );
               // Fallback to manual layout
               const fallbackNodes = newNodes.map((node, index) => ({
                 ...node,
-                position: { x: (index % 4) * 300 + 50, y: Math.floor(index / 4) * 150 + 50 },
+                position: {
+                  x: (index % 4) * 300 + 50,
+                  y: Math.floor(index / 4) * 150 + 50,
+                },
               }));
               setNodes(fallbackNodes);
               setEdges(existingCustomEdges);

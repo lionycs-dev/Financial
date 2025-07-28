@@ -25,17 +25,15 @@ export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
 
       <Handle
         type="target"
-        position={Position.Left}
+        id={`clientgrouptype_target`}
+        position={Position.Top}
         className="w-3 h-3 bg-purple-400 border-2 border-purple-600"
-        isValidConnection={(connection) => {
-          const sourceType = connection.source?.split('-')[0];
-          return sourceType === 'clientgrouptype';
-        }}
         style={{ visibility: 'hidden' }}
       />
 
       <Handle
         type="source"
+        id={`clientgroup_to_stream_product`}
         position={Position.Right}
         className="w-3 h-3 bg-purple-400 border-2 border-purple-600"
         isValidConnection={(connection) => {
