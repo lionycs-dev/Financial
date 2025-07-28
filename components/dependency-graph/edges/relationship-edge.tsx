@@ -85,6 +85,15 @@ export function RelationshipEdge({
 
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+    
+    // Don't show context menu for automatic relationships
+    const relationshipType = data?.relationship || '';
+    const isAutomatic = data?.isAutomatic || false;
+    
+    if (isAutomatic || relationshipType === 'belongs_to' || relationshipType === 'belongs_to_type') {
+      return;
+    }
+    
     console.log('Edge right-clicked:', { id, relationship: data?.relationship });
     
     // Create context menu
@@ -191,7 +200,7 @@ export function RelationshipEdge({
           strokeWidth: edgeStyle.strokeWidth,
           strokeDasharray: edgeStyle.strokeDasharray,
         }}
-        className={`react-flow__edge-path hover:opacity-80 cursor-context-menu ${edgeStyle.animation ? `animated-${id}` : ''}`}
+        className={`react-flow__edge-path hover:opacity-80 ${(data?.isAutomatic || data?.relationship === 'belongs_to' || data?.relationship === 'belongs_to_type') ? '' : 'cursor-context-menu'} ${edgeStyle.animation ? `animated-${id}` : ''}`}
         d={edgePath}
         markerEnd={edgeStyle.showArrow ? `url(#arrowhead-${id})` : undefined}
         onContextMenu={onContextMenu}
@@ -204,7 +213,7 @@ export function RelationshipEdge({
             fontSize: 10,
             pointerEvents: 'all',
           }}
-          className="nodrag nopan bg-white px-2 py-1 rounded border text-xs text-gray-600 hover:bg-gray-50 cursor-context-menu"
+          className={`nodrag nopan bg-white px-2 py-1 rounded border text-xs text-gray-600 hover:bg-gray-50 ${(data?.isAutomatic || data?.relationship === 'belongs_to' || data?.relationship === 'belongs_to_type') ? '' : 'cursor-context-menu'}`}
           onContextMenu={onContextMenu}
         >
           {data?.relationship || 'relationship'}
