@@ -23,9 +23,23 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         <div className="text-xs text-gray-600 truncate">{data.description}</div>
       )}
 
+      {/* Belongs_to source handle for product connections */}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="belongs_to"
+        className="w-3 h-3 bg-green-800 border-2 border-green-900"
+        isValidConnection={(connection) => {
+          const targetType = connection.target?.split('-')[0];
+          return targetType === 'product';
+        }}
+      />
+
+      {/* General target handle */}
       <Handle
         type="target"
         position={Position.Bottom}
+        id="general"
         className="w-3 h-3 bg-green-600 border-2 border-green-800"
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
@@ -33,13 +47,15 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         }}
       />
 
+      {/* General source handle */}
       <Handle
         type="source"
         position={Position.Bottom}
+        id="general_source"
         className="w-3 h-3 bg-green-600 border-2 border-green-800"
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
-          return targetType === 'product' || targetType === 'clientgrouptype';
+          return targetType === 'clientgrouptype';
         }}
       />
     </div>

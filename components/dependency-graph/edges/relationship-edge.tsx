@@ -1,10 +1,6 @@
 'use client';
 
-import {
-  EdgeProps,
-  EdgeLabelRenderer,
-  getSmoothStepPath,
-} from 'reactflow';
+import { EdgeProps, EdgeLabelRenderer, getSmoothStepPath } from 'reactflow';
 
 interface RelationshipEdgeData {
   relationship: string;
@@ -37,27 +33,37 @@ export function RelationshipEdge({
   // Determine edge styling based on relationship type
   const isAutomatic = data?.isAutomatic || false;
   const relationshipType = data?.relationship || '';
-  
+
   // Base styles
   let strokeWidth = 2;
   let strokeDasharray = '';
   let stroke = '#6b7280'; // gray-500
   let animation = '';
-  
+
   if (isAutomatic) {
     if (relationshipType === 'belongs_to') {
       strokeWidth = 4; // Thicker for belongs_to
       strokeDasharray = '8,4'; // Longer dashes
       stroke = '#10b981'; // green-500
     } else if (relationshipType === 'belongs_to_type') {
-      strokeWidth = 3;
+      strokeWidth = 4; // Same thickness as belongs_to
       strokeDasharray = '6,3';
       stroke = '#8b5cf6'; // purple-500
     }
   } else {
     // User-created relationships
-    if (relationshipType.includes('product')) {
-      // Product relationships get animation
+    if (
+      relationshipType === 'clientgroup_to_product' ||
+      relationshipType === 'clientgroup_to_stream' ||
+      relationshipType === 'clientgrouptype_to_product' ||
+      relationshipType === 'clientgrouptype_to_stream'
+    ) {
+      // Client group and client group type relationships - solid blue, no animation
+      strokeWidth = 2;
+      strokeDasharray = '';
+      stroke = '#3b82f6'; // blue-500
+    } else if (relationshipType.includes('product')) {
+      // Other product relationships get animation
       animation = 'dash 2s linear infinite';
       strokeDasharray = '10,5';
       stroke = '#f59e0b'; // amber-500
@@ -66,17 +72,22 @@ export function RelationshipEdge({
 
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log('Edge right-clicked:', { id, relationship: data?.relationship });
-    
+    console.log('Edge right-clicked:', {
+      id,
+      relationship: data?.relationship,
+    });
+
     // Create context menu
     const menu = document.createElement('div');
-    menu.className = 'fixed bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1';
+    menu.className =
+      'fixed bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1';
     menu.style.left = `${e.clientX}px`;
     menu.style.top = `${e.clientY}px`;
-    
+
     // Edit option
     const editOption = document.createElement('button');
-    editOption.className = 'block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100';
+    editOption.className =
+      'block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100';
     editOption.textContent = 'Edit Relationship';
     editOption.onclick = () => {
       if (data?.onEdit) {
@@ -84,10 +95,11 @@ export function RelationshipEdge({
       }
       document.body.removeChild(menu);
     };
-    
+
     // Delete option
     const deleteOption = document.createElement('button');
-    deleteOption.className = 'block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50';
+    deleteOption.className =
+      'block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50';
     deleteOption.textContent = 'Delete Relationship';
     deleteOption.onclick = () => {
       if (data?.onDelete) {
@@ -95,11 +107,11 @@ export function RelationshipEdge({
       }
       document.body.removeChild(menu);
     };
-    
+
     menu.appendChild(editOption);
     menu.appendChild(deleteOption);
     document.body.appendChild(menu);
-    
+
     // Remove menu when clicking elsewhere
     const removeMenu = () => {
       if (document.body.contains(menu)) {
@@ -107,7 +119,7 @@ export function RelationshipEdge({
       }
       document.removeEventListener('click', removeMenu);
     };
-    
+
     setTimeout(() => document.addEventListener('click', removeMenu), 0);
   };
 
@@ -123,10 +135,7 @@ export function RelationshipEdge({
           orient="auto"
           markerUnits="userSpaceOnUse"
         >
-          <polygon
-            points="0 0, 10 3.5, 0 7"
-            fill={stroke}
-          />
+          <polygon points="0 0, 10 3.5, 0 7" fill={stroke} />
         </marker>
         {animation && (
           <style>
@@ -153,7 +162,14 @@ export function RelationshipEdge({
         }}
         className={`react-flow__edge-path hover:opacity-80 cursor-context-menu ${animation ? `animated-${id}` : ''}`}
         d={edgePath}
-        markerEnd={`url(#arrowhead-${id})`}
+        markerEnd={
+          relationshipType === 'clientgroup_to_product' ||
+          relationshipType === 'clientgroup_to_stream' ||
+          relationshipType === 'clientgrouptype_to_product' ||
+          relationshipType === 'clientgrouptype_to_stream'
+            ? undefined
+            : `url(#arrowhead-${id})`
+        }
         onContextMenu={onContextMenu}
       />
       <EdgeLabelRenderer>

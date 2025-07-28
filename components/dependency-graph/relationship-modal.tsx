@@ -38,7 +38,6 @@ const relationshipSchema = z.object({
     'clientgrouptype_to_product',
     'clientgrouptype_to_stream',
     'product_to_clientgrouptype',
-    'stream_to_clientgrouptype',
   ]),
   weight: z
     .string()
@@ -73,8 +72,7 @@ type RelationshipType =
   | 'product_conversion'
   | 'clientgrouptype_to_product'
   | 'clientgrouptype_to_stream'
-  | 'product_to_clientgrouptype'
-  | 'stream_to_clientgrouptype';
+  | 'product_to_clientgrouptype';
 type RelationshipFormData = z.infer<typeof relationshipSchema>;
 
 interface RelationshipModalProps {
@@ -145,7 +143,7 @@ export function RelationshipModal({
     if (source === 'clientGroupType' && target === 'product')
       return 'clientgrouptype_to_product';
     if (source === 'stream' && target === 'clientGroupType')
-      return 'stream_to_clientgrouptype';
+      return 'clientgrouptype_to_stream'; // Always use clientgrouptype_to_stream regardless of direction
     if (source === 'clientGroupType' && target === 'stream')
       return 'clientgrouptype_to_stream';
     return 'clientgroup_to_product'; // fallback
@@ -204,8 +202,8 @@ export function RelationshipModal({
 
     if (source === 'stream' && target === 'clientGroupType') {
       validTypes.push({
-        value: 'stream_to_clientgrouptype',
-        label: 'Revenue Stream targets Client Group Type',
+        value: 'clientgrouptype_to_stream',
+        label: 'Client Group Type connects to Revenue Stream',
       });
     }
 

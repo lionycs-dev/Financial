@@ -21,22 +21,38 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
         <div>Cost: ${data.unitCost}</div>
       </div>
 
+      {/* Belongs_to handle for stream connections (top) */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="belongs_to"
+        className="w-3 h-3 bg-green-600 border-2 border-green-800"
+        isValidConnection={(connection) => {
+          const sourceType = connection.source?.split('-')[0];
+          return sourceType === 'stream';
+        }}
+      />
+
+      {/* General incoming handle (left) - for all other incoming relationships */}
       <Handle
         type="target"
         position={Position.Left}
+        id="general"
         className="w-3 h-3 bg-green-400 border-2 border-green-600"
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
-          return sourceType === 'stream' || sourceType === 'product';
+          return sourceType === 'clientgroup' || sourceType === 'product' || sourceType === 'clientgrouptype';
         }}
       />
+
+      {/* Source handle (right) */}
       <Handle
         type="source"
         position={Position.Right}
         className="w-3 h-3 bg-green-400 border-2 border-green-600"
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
-          return targetType === 'clientgroup' || targetType === 'product';
+          return targetType === 'clientgroup' || targetType === 'product' || targetType === 'clientgrouptype';
         }}
       />
     </div>

@@ -275,13 +275,6 @@ function DependencyGraphInner() {
             finalTargetType = 'clientGroupType';
             const targetStringId = connectionData.target.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
             finalTargetId = CLIENT_GROUP_TYPE_IDS[targetStringId];
-          } else if (relationshipData.type === 'stream_to_clientgrouptype') {
-            // Stream to client group type - stream is source, clientGroupType is target
-            finalSourceType = 'stream';
-            finalSourceId = parseInt(connectionData.source.split('-')[1]);
-            finalTargetType = 'clientGroupType';
-            const targetStringId = connectionData.target.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
-            finalTargetId = CLIENT_GROUP_TYPE_IDS[targetStringId];
           } else if (relationshipData.type === 'clientgrouptype_to_product') {
             // Client group type to product - clientGroupType is source, product is target
             finalSourceType = 'clientGroupType';
@@ -290,12 +283,22 @@ function DependencyGraphInner() {
             finalTargetType = 'product';
             finalTargetId = parseInt(connectionData.target.split('-')[1]);
           } else if (relationshipData.type === 'clientgrouptype_to_stream') {
-            // Client group type to stream - clientGroupType is source, stream is target
-            finalSourceType = 'clientGroupType';
-            const sourceStringId = connectionData.source.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
-            finalSourceId = CLIENT_GROUP_TYPE_IDS[sourceStringId];
-            finalTargetType = 'stream';
-            finalTargetId = parseInt(connectionData.target.split('-')[1]);
+            // Client group type to stream - ALWAYS clientGroupType is source, stream is target
+            if (connectionData.sourceType === 'clientGroupType') {
+              // User dragged from clientgrouptype to stream
+              finalSourceType = 'clientGroupType';
+              const sourceStringId = connectionData.source.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+              finalSourceId = CLIENT_GROUP_TYPE_IDS[sourceStringId];
+              finalTargetType = 'stream';
+              finalTargetId = parseInt(connectionData.target.split('-')[1]);
+            } else {
+              // User dragged from stream to clientgrouptype, reverse it
+              finalSourceType = 'clientGroupType';
+              const targetStringId = connectionData.target.split('-')[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+              finalSourceId = CLIENT_GROUP_TYPE_IDS[targetStringId];
+              finalTargetType = 'stream';
+              finalTargetId = parseInt(connectionData.source.split('-')[1]);
+            }
           } else {
             // For other relationship types, use the connection direction as-is
             finalSourceType =
@@ -348,10 +351,20 @@ function DependencyGraphInner() {
             } else {
               // Create new edge with the relationship ID from the server response
               if (result.data) {
+                // Determine the correct target handle based on relationship type
+                let targetHandle: string | undefined;
+                if (relationshipData.type === 'belongs_to') {
+                  targetHandle = 'belongs_to';
+                } else {
+                  // All other relationships go to the general handle
+                  targetHandle = 'general';
+                }
+
                 const newEdge: Edge = {
                   id: `relationship-${result.data.id}`,
                   source: connectionData.source,
                   target: connectionData.target,
+                  targetHandle,
                   type: 'relationship',
                   data: {
                     relationship: relationshipData.type,
@@ -467,7 +480,9 @@ function DependencyGraphInner() {
             newEdges.push({
               id: `auto-stream-product-${product.id}`,
               source: `stream-${product.productStreamId}`,
+              sourceHandle: 'belongs_to', // Use the specific belongs_to source handle
               target: `product-${product.id}`,
+              targetHandle: 'belongs_to', // Use the specific belongs_to target handle
               type: 'relationship',
               style: { stroke: '#10b981', strokeDasharray: '5,5' }, // Green dashed line for automatic relationships
               data: {
@@ -568,10 +583,20 @@ function DependencyGraphInner() {
             targetId = `${targetNodeType}-${relationship.targetId}`;
           }
 
+          // Determine the correct target handle based on relationship type
+          let targetHandle: string | undefined;
+          if (relationship.relationshipType === 'belongs_to') {
+            targetHandle = 'belongs_to';
+          } else {
+            // All other relationships go to the general handle
+            targetHandle = 'general';
+          }
+
           newEdges.push({
             id: `relationship-${relationship.id}`,
             source: sourceId,
             target: targetId,
+            targetHandle,
             type: 'relationship',
             data: {
               relationship: relationship.relationshipType,
@@ -740,7 +765,9 @@ function DependencyGraphInner() {
                 existingCustomEdges.push({
                   id: `auto-stream-product-${product.id}`,
                   source: `stream-${product.productStreamId}`,
+                  sourceHandle: 'belongs_to', // Use the specific belongs_to source handle
                   target: `product-${product.id}`,
+                  targetHandle: 'belongs_to', // Use the specific belongs_to target handle
                   type: 'relationship',
                   style: { stroke: '#10b981', strokeDasharray: '5,5' }, // Green dashed line for automatic relationships
                   data: {
