@@ -14,7 +14,6 @@ import ReactFlow, {
   ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import ELK from 'elkjs/lib/elk.bundled.js';
 
 import { StreamNode } from './nodes/stream-node';
 import { ProductNode } from './nodes/product-node';
@@ -59,10 +58,7 @@ const CLIENT_GROUP_TYPE_ID_TO_STRING: Record<number, string> = {
   3: 'DTC',
 };
 
-// ELK layout configuration
-const elk = new ELK();
-
-const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'RIGHT') => {
+const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   // Filter edges to only include those between existing nodes
   const nodeIds = new Set(nodes.map(node => node.id));
   const validEdges = edges.filter(edge => {
@@ -77,52 +73,66 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'RIGHT') 
   console.log('ELK input nodes:', nodes.map(n => n.id));
   console.log('ELK input valid edges:', validEdges.map(e => ({ id: e.id, source: e.source, target: e.target })));
 
-  const graph = {
-    id: 'root',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      'elk.direction': direction,
-      'elk.spacing.nodeNode': '50',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '100',
-    },
-    children: nodes.map((node) => ({
-      id: node.id,
-      width: 250,
-      height: 120,
-    })),
-    edges: validEdges.map((edge) => ({
-      id: edge.id,
-      sources: [edge.source],
-      targets: [edge.target],
-    })),
-  };
+  // Separate nodes by type for custom positioning
+  const clientGroupTypeNodes = nodes.filter(n => n.type === 'clientGroupType');
+  const streamNodes = nodes.filter(n => n.type === 'stream'); 
+  const productNodes = nodes.filter(n => n.type === 'product');
+  const clientGroupNodes = nodes.filter(n => n.type === 'clientGroup');
 
-  console.log('ELK graph:', JSON.stringify(graph, null, 2));
-
-  return elk
-    .layout(graph)
-    .then((layoutedGraph) => {
-      console.log('ELK layout result:', layoutedGraph);
-      return {
-        nodes: nodes.map((node) => {
-          const layoutedNode = layoutedGraph.children?.find(
-            (lgNode) => lgNode.id === node.id
-          );
-          return {
-            ...node,
-            position: {
-              x: layoutedNode?.x ?? 0,
-              y: layoutedNode?.y ?? 0,
-            },
-          };
-        }),
-        edges: validEdges,
-      };
-    })
-    .catch((error) => {
-      console.error('ELK layout error:', error);
-      return null;
+  // Custom layout: manually position nodes
+  const layoutedNodes: Node[] = [];
+  
+  // Client Group Types on the left
+  clientGroupTypeNodes.forEach((node, index) => {
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: 50,
+        y: 50 + (index * 200), // Vertical spacing
+      },
     });
+  });
+
+  // Revenue Streams on the top
+  streamNodes.forEach((node, index) => {
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: 350 + (index * 300), // Horizontal spacing
+        y: 50,
+      },
+    });
+  });
+
+  // Products in the middle with bigger gaps
+  const productsPerRow = 3;
+  productNodes.forEach((node, index) => {
+    const row = Math.floor(index / productsPerRow);
+    const col = index % productsPerRow;
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: 350 + (col * 350), // Bigger horizontal gap between products
+        y: 250 + (row * 200), // Vertical spacing for product rows
+      },
+    });
+  });
+
+  // Client Groups on the right
+  clientGroupNodes.forEach((node, index) => {
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: 1200,
+        y: 250 + (index * 200), // Vertical spacing
+      },
+    });
+  });
+
+  return Promise.resolve({
+    nodes: layoutedNodes,
+    edges: validEdges,
+  });
 };
 
 function DependencyGraphInner() {
