@@ -52,6 +52,13 @@ const CLIENT_GROUP_TYPE_IDS = {
   'DTC': 3,
 } as const;
 
+// Reverse mapping from numeric ID to string ID
+const CLIENT_GROUP_TYPE_ID_TO_STRING: Record<number, string> = {
+  1: 'B2B',
+  2: 'B2C',
+  3: 'DTC',
+};
+
 // ELK layout configuration
 const elk = new ELK();
 
@@ -515,14 +522,33 @@ function DependencyGraphInner() {
           const sourceNodeType =
             relationship.sourceType === 'clientGroup'
               ? 'clientgroup'
+              : relationship.sourceType === 'clientGroupType'
+              ? 'clientgrouptype'
               : relationship.sourceType;
           const targetNodeType =
             relationship.targetType === 'clientGroup'
               ? 'clientgroup'
+              : relationship.targetType === 'clientGroupType'
+              ? 'clientgrouptype'
               : relationship.targetType;
 
-          const sourceId = `${sourceNodeType}-${relationship.sourceId}`;
-          const targetId = `${targetNodeType}-${relationship.targetId}`;
+          // Handle client group type ID mapping
+          let sourceId: string;
+          let targetId: string;
+          
+          if (relationship.sourceType === 'clientGroupType') {
+            const stringId = CLIENT_GROUP_TYPE_ID_TO_STRING[relationship.sourceId];
+            sourceId = `${sourceNodeType}-${stringId}`;
+          } else {
+            sourceId = `${sourceNodeType}-${relationship.sourceId}`;
+          }
+          
+          if (relationship.targetType === 'clientGroupType') {
+            const stringId = CLIENT_GROUP_TYPE_ID_TO_STRING[relationship.targetId];
+            targetId = `${targetNodeType}-${stringId}`;
+          } else {
+            targetId = `${targetNodeType}-${relationship.targetId}`;
+          }
 
           newEdges.push({
             id: `relationship-${relationship.id}`,
@@ -544,22 +570,28 @@ function DependencyGraphInner() {
                 const sourceType =
                   relationship.sourceType === 'clientGroup'
                     ? 'clientGroup'
+                    : relationship.sourceType === 'clientGroupType'
+                    ? 'clientGroupType'
                     : (relationship.sourceType as
                         | 'stream'
                         | 'product'
-                        | 'clientGroup');
+                        | 'clientGroup'
+                        | 'clientGroupType');
                 const targetType =
                   relationship.targetType === 'clientGroup'
                     ? 'clientGroup'
+                    : relationship.targetType === 'clientGroupType'
+                    ? 'clientGroupType'
                     : (relationship.targetType as
                         | 'stream'
                         | 'product'
-                        | 'clientGroup');
+                        | 'clientGroup'
+                        | 'clientGroupType');
 
                 setEditingRelationship({ id: edgeId, data: edgeData });
                 setConnectionData({
-                  source: `${sourceNodeType}-${relationship.sourceId}`,
-                  target: `${targetNodeType}-${relationship.targetId}`,
+                  source: sourceId,
+                  target: targetId,
                   sourceType: sourceType,
                   targetType: targetType,
                 });

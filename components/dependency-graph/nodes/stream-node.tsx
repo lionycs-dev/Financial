@@ -29,7 +29,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         className="w-3 h-3 bg-blue-400 border-2 border-blue-600"
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
-          return sourceType === 'clientgroup';
+          return sourceType === 'clientgroup' || sourceType === 'clientgrouptype';
         }}
       />
 
@@ -39,7 +39,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         className="w-3 h-3 bg-blue-400 border-2 border-blue-600"
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
-          return targetType === 'product';
+          return targetType === 'product' || targetType === 'clientgrouptype';
         }}
       />
     </div>
