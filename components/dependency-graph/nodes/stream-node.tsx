@@ -19,9 +19,6 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
       </div>
       <div className="text-sm font-medium text-gray-900 mb-1">{data.name}</div>
       <div className="text-xs text-green-800 mb-1">{data.type}</div>
-      {data.description && (
-        <div className="text-xs text-gray-600 truncate">{data.description}</div>
-      )}
 
       {/* Belongs_to source handle for product connections */}
       <Handle
@@ -29,6 +26,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         position={Position.Bottom}
         id="belongs_to"
         className="w-3 h-3 bg-green-800 border-2 border-green-900"
+        style={{ visibility: 'hidden' }}
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
           return targetType === 'product';
@@ -38,19 +36,21 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
       {/* General target handle */}
       <Handle
         type="target"
-        position={Position.Bottom}
+        position={Position.Left}
         id="general"
         className="w-3 h-3 bg-green-600 border-2 border-green-800"
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
-          return sourceType === 'clientgroup' || sourceType === 'clientgrouptype';
+          return (
+            sourceType === 'clientgroup' || sourceType === 'clientgrouptype'
+          );
         }}
       />
 
       {/* General source handle */}
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         id="general_source"
         className="w-3 h-3 bg-green-600 border-2 border-green-800"
         isValidConnection={(connection) => {

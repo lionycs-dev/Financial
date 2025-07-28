@@ -27,6 +27,7 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
         position={Position.Top}
         id="belongs_to"
         className="w-3 h-3 bg-green-600 border-2 border-green-800"
+        style={{ visibility: 'hidden' }}
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
           return sourceType === 'stream';
@@ -41,7 +42,11 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
         className="w-3 h-3 bg-green-400 border-2 border-green-600"
         isValidConnection={(connection) => {
           const sourceType = connection.source?.split('-')[0];
-          return sourceType === 'clientgroup' || sourceType === 'product' || sourceType === 'clientgrouptype';
+          return (
+            sourceType === 'clientgroup' ||
+            sourceType === 'product' ||
+            sourceType === 'clientgrouptype'
+          );
         }}
       />
 
@@ -52,7 +57,11 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
         className="w-3 h-3 bg-green-400 border-2 border-green-600"
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
-          return targetType === 'clientgroup' || targetType === 'product' || targetType === 'clientgrouptype';
+          return (
+            targetType === 'clientgroup' ||
+            targetType === 'product' ||
+            targetType === 'clientgrouptype'
+          );
         }}
       />
     </div>

@@ -10,7 +10,9 @@ interface ClientGroupTypeNodeData {
   description?: string;
 }
 
-export function ClientGroupTypeNode({ data }: NodeProps<ClientGroupTypeNodeData>) {
+export function ClientGroupTypeNode({
+  data,
+}: NodeProps<ClientGroupTypeNodeData>) {
   return (
     <div className="bg-purple-200 border-2 border-purple-600 rounded-lg p-4 min-w-[200px] shadow-md text-purple-950">
       <div className="flex items-center gap-2 mb-2">
@@ -37,6 +39,7 @@ export function ClientGroupTypeNode({ data }: NodeProps<ClientGroupTypeNodeData>
         type="source"
         position={Position.Right}
         className="w-3 h-3 bg-purple-600 border-2 border-purple-800"
+        style={{ visibility: 'hidden' }}
         isValidConnection={(connection) => {
           const targetType = connection.target?.split('-')[0];
           return targetType === 'clientgroup' || targetType === 'stream';
