@@ -25,7 +25,10 @@ import {
   revenueStreamSchema,
   type RevenueStreamFormData,
 } from '@/lib/schemas/forms';
-import { createRevenueStream, updateRevenueStream } from '@/lib/actions/revenue-stream-actions';
+import {
+  createRevenueStream,
+  updateRevenueStream,
+} from '@/lib/actions/revenue-stream-actions';
 import { useState, useEffect } from 'react';
 
 interface RevenueStreamFormProps {
@@ -38,7 +41,10 @@ interface RevenueStreamFormProps {
   } | null;
 }
 
-export function RevenueStreamForm({ onSuccess, initialData }: RevenueStreamFormProps) {
+export function RevenueStreamForm({
+  onSuccess,
+  initialData,
+}: RevenueStreamFormProps) {
   const [loading, setLoading] = useState(false);
   const isEditing = !!initialData;
 
@@ -65,20 +71,26 @@ export function RevenueStreamForm({ onSuccess, initialData }: RevenueStreamFormP
   async function onSubmit(values: RevenueStreamFormData) {
     setLoading(true);
     try {
-      const result = isEditing 
+      const result = isEditing
         ? await updateRevenueStream(initialData!.id, values)
         : await createRevenueStream(values);
-        
+
       if (result.success) {
         if (!isEditing) {
           form.reset();
         }
         onSuccess();
       } else {
-        console.error(`Failed to ${isEditing ? 'update' : 'create'} revenue stream:`, result.error);
+        console.error(
+          `Failed to ${isEditing ? 'update' : 'create'} revenue stream:`,
+          result.error
+        );
       }
     } catch (error) {
-      console.error(`Failed to ${isEditing ? 'update' : 'create'} revenue stream:`, error);
+      console.error(
+        `Failed to ${isEditing ? 'update' : 'create'} revenue stream:`,
+        error
+      );
     } finally {
       setLoading(false);
     }
@@ -151,10 +163,13 @@ export function RevenueStreamForm({ onSuccess, initialData }: RevenueStreamFormP
         />
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading 
-            ? (isEditing ? 'Updating...' : 'Creating...') 
-            : (isEditing ? 'Update Revenue Stream' : 'Create Revenue Stream')
-          }
+          {loading
+            ? isEditing
+              ? 'Updating...'
+              : 'Creating...'
+            : isEditing
+              ? 'Update Revenue Stream'
+              : 'Create Revenue Stream'}
         </Button>
       </form>
     </Form>

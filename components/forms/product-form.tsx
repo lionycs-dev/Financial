@@ -26,7 +26,11 @@ import {
   productSchema,
   type ProductFormData,
 } from '@/lib/schemas/forms';
-import { createProduct, updateProduct, getRevenueStreams } from '@/lib/actions/product-actions';
+import {
+  createProduct,
+  updateProduct,
+  getRevenueStreams,
+} from '@/lib/actions/product-actions';
 import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -218,7 +222,8 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
                     />
                   </FormControl>
                   <FormDescription>
-                    Percentage of revenue stream (0-1, must sum to 1 within stream)
+                    Percentage of revenue stream (0-1, must sum to 1 within
+                    stream)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -317,7 +322,7 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
                   name={`pricingPlans.${index}.priceFormula`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price Formula</FormLabel>
+                      <FormLabel>Selling Price</FormLabel>
                       <FormControl>
                         <Input placeholder="$99/month" {...field} />
                       </FormControl>
@@ -425,7 +430,7 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
                         />
                       </FormControl>
                       <FormDescription>
-                        Annual price increase percentage
+                        Annual price increase/decrease percentage
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

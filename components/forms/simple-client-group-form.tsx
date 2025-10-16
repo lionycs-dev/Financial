@@ -160,8 +160,12 @@ export function SimpleClientGroupForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="B2B">B2B (Business to Business)</SelectItem>
-                  <SelectItem value="B2C">B2C (Business to Consumer)</SelectItem>
+                  <SelectItem value="B2B">
+                    B2B (Business to Business)
+                  </SelectItem>
+                  <SelectItem value="B2C">
+                    B2C (Business to Consumer)
+                  </SelectItem>
                   <SelectItem value="DTC">DTC (Direct to Consumer)</SelectItem>
                 </SelectContent>
               </Select>

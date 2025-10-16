@@ -124,12 +124,8 @@
           "name": "products_product_stream_id_revenue_streams_id_fk",
           "tableFrom": "products",
           "tableTo": "revenue_streams",
-          "columnsFrom": [
-            "product_stream_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_stream_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -266,11 +262,7 @@
     "public.client_group_type": {
       "name": "client_group_type",
       "schema": "public",
-      "values": [
-        "B2B",
-        "B2C",
-        "DTC"
-      ]
+      "values": ["B2B", "B2C", "DTC"]
     },
     "public.revenue_type": {
       "name": "revenue_type",

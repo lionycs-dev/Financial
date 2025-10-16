@@ -85,26 +85,35 @@ export function RelationshipEdge({
 
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    
+
     // Don't show context menu for automatic relationships
     const relationshipType = data?.relationship || '';
     const isAutomatic = data?.isAutomatic || false;
-    
-    if (isAutomatic || relationshipType === 'belongs_to' || relationshipType === 'belongs_to_type') {
+
+    if (
+      isAutomatic ||
+      relationshipType === 'belongs_to' ||
+      relationshipType === 'belongs_to_type'
+    ) {
       return;
     }
-    
-    console.log('Edge right-clicked:', { id, relationship: data?.relationship });
-    
+
+    console.log('Edge right-clicked:', {
+      id,
+      relationship: data?.relationship,
+    });
+
     // Create context menu
     const menu = document.createElement('div');
-    menu.className = 'fixed bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1';
+    menu.className =
+      'fixed bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1';
     menu.style.left = `${e.clientX}px`;
     menu.style.top = `${e.clientY}px`;
-    
+
     // Edit option
     const editOption = document.createElement('button');
-    editOption.className = 'block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100';
+    editOption.className =
+      'block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100';
     editOption.textContent = 'Edit Relationship';
     editOption.onclick = () => {
       if (data?.onEdit) {
@@ -112,10 +121,11 @@ export function RelationshipEdge({
       }
       document.body.removeChild(menu);
     };
-    
+
     // Delete option
     const deleteOption = document.createElement('button');
-    deleteOption.className = 'block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50';
+    deleteOption.className =
+      'block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50';
     deleteOption.textContent = 'Delete Relationship';
     deleteOption.onclick = () => {
       if (data?.onDelete) {
@@ -123,11 +133,11 @@ export function RelationshipEdge({
       }
       document.body.removeChild(menu);
     };
-    
+
     menu.appendChild(editOption);
     menu.appendChild(deleteOption);
     document.body.appendChild(menu);
-    
+
     // Remove menu when clicking elsewhere
     const removeMenu = () => {
       if (document.body.contains(menu)) {
@@ -135,7 +145,7 @@ export function RelationshipEdge({
       }
       document.removeEventListener('click', removeMenu);
     };
-    
+
     setTimeout(() => document.addEventListener('click', removeMenu), 0);
   };
 
@@ -200,7 +210,7 @@ export function RelationshipEdge({
           strokeWidth: edgeStyle.strokeWidth,
           strokeDasharray: edgeStyle.strokeDasharray,
         }}
-        className={`react-flow__edge-path hover:opacity-80 ${(data?.isAutomatic || data?.relationship === 'belongs_to' || data?.relationship === 'belongs_to_type') ? '' : 'cursor-context-menu'} ${edgeStyle.animation ? `animated-${id}` : ''}`}
+        className={`react-flow__edge-path hover:opacity-80 ${data?.isAutomatic || data?.relationship === 'belongs_to' || data?.relationship === 'belongs_to_type' ? '' : 'cursor-context-menu'} ${edgeStyle.animation ? `animated-${id}` : ''}`}
         d={edgePath}
         markerEnd={edgeStyle.showArrow ? `url(#arrowhead-${id})` : undefined}
         onContextMenu={onContextMenu}
@@ -213,7 +223,7 @@ export function RelationshipEdge({
             fontSize: 10,
             pointerEvents: 'all',
           }}
-          className={`nodrag nopan bg-white px-2 py-1 rounded border text-xs text-gray-600 hover:bg-gray-50 ${(data?.isAutomatic || data?.relationship === 'belongs_to' || data?.relationship === 'belongs_to_type') ? '' : 'cursor-context-menu'}`}
+          className={`nodrag nopan bg-white px-2 py-1 rounded border text-xs text-gray-600 hover:bg-gray-50 ${data?.isAutomatic || data?.relationship === 'belongs_to' || data?.relationship === 'belongs_to_type' ? '' : 'cursor-context-menu'}`}
           onContextMenu={onContextMenu}
         >
           {data?.relationship || 'relationship'}

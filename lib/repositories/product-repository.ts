@@ -22,7 +22,10 @@ export class ProductRepository {
         },
       })
       .from(products)
-      .leftJoin(revenueStreams, eq(products.productStreamId, revenueStreams.id));
+      .leftJoin(
+        revenueStreams,
+        eq(products.productStreamId, revenueStreams.id)
+      );
   }
 
   async getById(id: number) {
@@ -104,7 +107,10 @@ export class ProductRepository {
   }
 
   async getProductsByStreamId(streamId: number) {
-    return await db.select().from(products).where(eq(products.productStreamId, streamId));
+    return await db
+      .select()
+      .from(products)
+      .where(eq(products.productStreamId, streamId));
   }
 
   async getTotalWeightByStreamId(streamId: number) {
@@ -115,9 +121,13 @@ export class ProductRepository {
     return Number(result[0]?.total) || 0;
   }
 
-  async validateWeightUpdate(streamId: number, productId: number | null, newWeight: string) {
+  async validateWeightUpdate(
+    streamId: number,
+    productId: number | null,
+    newWeight: string
+  ) {
     const currentTotal = await this.getTotalWeightByStreamId(streamId);
-    
+
     let adjustedTotal = currentTotal;
     if (productId) {
       // If updating existing product, subtract its current weight
@@ -126,10 +136,10 @@ export class ProductRepository {
         adjustedTotal -= Number(currentProduct.weight);
       }
     }
-    
+
     // Add the new weight
     adjustedTotal += Number(newWeight);
-    
+
     return adjustedTotal <= 1.0;
   }
 }

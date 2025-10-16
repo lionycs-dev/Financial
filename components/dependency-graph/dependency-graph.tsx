@@ -62,11 +62,14 @@ const CLIENT_GROUP_TYPE_ID_TO_STRING: Record<number, string> = {
 // Save node positions to localStorage
 const saveLayoutToStorage = (nodes: Node[]) => {
   try {
-    const positions = nodes.reduce((acc, node) => {
-      acc[node.id] = node.position;
-      return acc;
-    }, {} as Record<string, { x: number; y: number }>);
-    
+    const positions = nodes.reduce(
+      (acc, node) => {
+        acc[node.id] = node.position;
+        return acc;
+      },
+      {} as Record<string, { x: number; y: number }>
+    );
+
     localStorage.setItem('dependency-graph-layout', JSON.stringify(positions));
   } catch (error) {
     console.warn('Failed to save layout to localStorage:', error);
@@ -74,7 +77,10 @@ const saveLayoutToStorage = (nodes: Node[]) => {
 };
 
 // Load node positions from localStorage
-const loadLayoutFromStorage = (): Record<string, { x: number; y: number }> | null => {
+const loadLayoutFromStorage = (): Record<
+  string,
+  { x: number; y: number }
+> | null => {
   try {
     const stored = localStorage.getItem('dependency-graph-layout');
     return stored ? JSON.parse(stored) : null;
@@ -100,17 +106,17 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
   // Try to load saved positions first
   const savedPositions = loadLayoutFromStorage();
-  
+
   if (savedPositions) {
     // Use saved positions if available
-    const layoutedNodes = nodes.map(node => {
+    const layoutedNodes = nodes.map((node) => {
       const savedPosition = savedPositions[node.id];
       return {
         ...node,
         position: savedPosition || node.position || { x: 0, y: 0 },
       };
     });
-    
+
     return Promise.resolve({
       nodes: layoutedNodes,
       edges: validEdges,
@@ -119,13 +125,15 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
   // Fallback to default structured layout if no saved positions
   // Separate nodes by type for structured layout
-  const streamNodes = nodes.filter(node => node.type === 'stream');
-  const productNodes = nodes.filter(node => node.type === 'product');
-  const clientGroupTypeNodes = nodes.filter(node => node.type === 'clientGroupType');
-  const clientGroupNodes = nodes.filter(node => node.type === 'clientGroup');
+  const streamNodes = nodes.filter((node) => node.type === 'stream');
+  const productNodes = nodes.filter((node) => node.type === 'product');
+  const clientGroupTypeNodes = nodes.filter(
+    (node) => node.type === 'clientGroupType'
+  );
+  const clientGroupNodes = nodes.filter((node) => node.type === 'clientGroup');
 
   const layoutedNodes: Node[] = [];
-  
+
   // Layout parameters
   const horizontalSpacing = 280;
   const verticalSpacing = 180;
@@ -160,7 +168,12 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
       ...node,
       position: {
         x: startX,
-        y: startY + verticalSpacing * 2 + clientGroupTypeNodes.length * verticalSpacing + verticalSpacing + index * verticalSpacing,
+        y:
+          startY +
+          verticalSpacing * 2 +
+          clientGroupTypeNodes.length * verticalSpacing +
+          verticalSpacing +
+          index * verticalSpacing,
       },
     });
   });
@@ -170,7 +183,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   productNodes.forEach((node, index) => {
     const col = index % productsPerRow;
     const row = Math.floor(index / productsPerRow);
-    
+
     layoutedNodes.push({
       ...node,
       position: {
@@ -191,28 +204,33 @@ function DependencyGraphInner() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   // Custom nodes change handler that auto-saves layout
-  const handleNodesChange = useCallback((changes: NodeChange[]) => {
-    onNodesChange(changes);
-    
-    // Check if any changes involve position updates
-    const hasPositionChanges = changes.some(change => change.type === 'position');
-    
-    if (hasPositionChanges) {
-      // Save layout after a short delay to debounce saves during dragging
-      setTimeout(() => {
-        setNodes((currentNodes) => {
-          saveLayoutToStorage(currentNodes);
-          return currentNodes;
-        });
-      }, 300);
-    }
-  }, [onNodesChange, setNodes]);
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      onNodesChange(changes);
+
+      // Check if any changes involve position updates
+      const hasPositionChanges = changes.some(
+        (change) => change.type === 'position'
+      );
+
+      if (hasPositionChanges) {
+        // Save layout after a short delay to debounce saves during dragging
+        setTimeout(() => {
+          setNodes((currentNodes) => {
+            saveLayoutToStorage(currentNodes);
+            return currentNodes;
+          });
+        }, 300);
+      }
+    },
+    [onNodesChange, setNodes]
+  );
 
   // Reset layout to default and clear saved positions
   const resetLayout = useCallback(async () => {
     try {
       localStorage.removeItem('dependency-graph-layout');
-      
+
       // Reapply default layout
       const layouted = await getLayoutedElements(nodes, edges);
       if (layouted) {
@@ -454,7 +472,7 @@ function DependencyGraphInner() {
                 // Determine the correct source and target handles based on relationship type
                 let sourceHandle: string | undefined;
                 let targetHandle: string | undefined;
-                
+
                 if (relationshipData.type === 'belongs_to') {
                   sourceHandle = 'belongs_to';
                   const productId = connectionData.target.split('-')[1];
@@ -465,10 +483,14 @@ function DependencyGraphInner() {
                 } else if (relationshipData.type === 'clientgroup_to_stream') {
                   sourceHandle = 'clientgroup_to_stream_product';
                   targetHandle = 'stream_target';
-                } else if (relationshipData.type === 'clientgrouptype_to_product') {
+                } else if (
+                  relationshipData.type === 'clientgrouptype_to_product'
+                ) {
                   sourceHandle = 'clientgrouptype_to_stream_product';
                   targetHandle = 'product_target';
-                } else if (relationshipData.type === 'clientgrouptype_to_stream') {
+                } else if (
+                  relationshipData.type === 'clientgrouptype_to_stream'
+                ) {
                   sourceHandle = 'clientgrouptype_to_stream_product';
                   targetHandle = 'stream_target';
                 } else if (relationshipData.type === 'product_conversion') {
@@ -722,21 +744,29 @@ function DependencyGraphInner() {
           // Determine the correct source and target handles based on relationship type
           let sourceHandle: string | undefined;
           let targetHandle: string | undefined;
-          
+
           if (relationship.relationshipType === 'belongs_to') {
             sourceHandle = 'belongs_to';
             const productId = relationship.targetId;
             targetHandle = `belongs_to_${productId}`;
-          } else if (relationship.relationshipType === 'clientgroup_to_product') {
+          } else if (
+            relationship.relationshipType === 'clientgroup_to_product'
+          ) {
             sourceHandle = 'clientgroup_to_stream_product';
             targetHandle = 'product_target';
-          } else if (relationship.relationshipType === 'clientgroup_to_stream') {
+          } else if (
+            relationship.relationshipType === 'clientgroup_to_stream'
+          ) {
             sourceHandle = 'clientgroup_to_stream_product';
             targetHandle = 'stream_target';
-          } else if (relationship.relationshipType === 'clientgrouptype_to_product') {
+          } else if (
+            relationship.relationshipType === 'clientgrouptype_to_product'
+          ) {
             sourceHandle = 'clientgrouptype_to_stream_product';
             targetHandle = 'product_target';
-          } else if (relationship.relationshipType === 'clientgrouptype_to_stream') {
+          } else if (
+            relationship.relationshipType === 'clientgrouptype_to_stream'
+          ) {
             sourceHandle = 'clientgrouptype_to_stream_product';
             targetHandle = 'stream_target';
           } else if (relationship.relationshipType === 'product_conversion') {

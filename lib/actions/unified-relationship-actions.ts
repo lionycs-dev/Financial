@@ -17,7 +17,9 @@ export interface UnifiedRelationship {
   updatedAt: Date;
 }
 
-export async function getAllUnifiedRelationships(): Promise<UnifiedRelationship[]> {
+export async function getAllUnifiedRelationships(): Promise<
+  UnifiedRelationship[]
+> {
   try {
     const relationships = await relationshipRepository.getAll();
     return relationships;
@@ -39,7 +41,7 @@ export async function createRelationship(data: {
     // Convert string IDs to numbers for database storage
     let numericSourceId: number;
     let numericTargetId: number;
-    
+
     if (typeof data.sourceId === 'string') {
       const parsed = parseInt(data.sourceId);
       if (isNaN(parsed)) {
@@ -50,7 +52,7 @@ export async function createRelationship(data: {
     } else {
       numericSourceId = data.sourceId;
     }
-    
+
     if (typeof data.targetId === 'string') {
       const parsed = parseInt(data.targetId);
       if (isNaN(parsed)) {
@@ -61,7 +63,7 @@ export async function createRelationship(data: {
     } else {
       numericTargetId = data.targetId;
     }
-    
+
     console.log('Creating relationship:', {
       sourceType: data.sourceType,
       sourceId: numericSourceId,
@@ -69,7 +71,7 @@ export async function createRelationship(data: {
       targetId: numericTargetId,
       relationshipType: data.relationshipType,
     });
-    
+
     // Check if relationship already exists
     const existing = await relationshipRepository.getBySourceAndTarget(
       data.sourceType,
@@ -77,7 +79,7 @@ export async function createRelationship(data: {
       data.targetType,
       numericTargetId
     );
-    
+
     if (existing) {
       return { success: false, error: 'Relationship already exists' };
     }
@@ -100,7 +102,9 @@ export async function updateRelationship(
   properties: Record<string, string | number>
 ) {
   try {
-    const relationship = await relationshipRepository.update(id, { properties });
+    const relationship = await relationshipRepository.update(id, {
+      properties,
+    });
     if (!relationship) {
       return { success: false, error: 'Relationship not found' };
     }

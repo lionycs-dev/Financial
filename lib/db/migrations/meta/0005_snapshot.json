@@ -122,12 +122,8 @@
           "name": "conversion_rules_client_group_id_client_groups_id_fk",
           "tableFrom": "conversion_rules",
           "tableTo": "client_groups",
-          "columnsFrom": [
-            "client_group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_group_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -135,12 +131,8 @@
           "name": "conversion_rules_from_product_id_products_id_fk",
           "tableFrom": "conversion_rules",
           "tableTo": "products",
-          "columnsFrom": [
-            "from_product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["from_product_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -148,12 +140,8 @@
           "name": "conversion_rules_to_product_id_products_id_fk",
           "tableFrom": "conversion_rules",
           "tableTo": "products",
-          "columnsFrom": [
-            "to_product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["to_product_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -387,9 +375,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -413,13 +399,7 @@
     "public.invoice_timing": {
       "name": "invoice_timing",
       "schema": "public",
-      "values": [
-        "Immediate",
-        "Upfront",
-        "Net30",
-        "Net60",
-        "Custom"
-      ]
+      "values": ["Immediate", "Upfront", "Net30", "Net60", "Custom"]
     },
     "public.revenue_type": {
       "name": "revenue_type",

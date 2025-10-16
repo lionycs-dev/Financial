@@ -2,10 +2,7 @@
 
 import { ProductRepository } from '@/lib/repositories/product-repository';
 import { RevenueStreamRepository } from '@/lib/repositories/revenue-stream-repository';
-import {
-  productSchema,
-  type ProductFormData,
-} from '@/lib/schemas/forms';
+import { productSchema, type ProductFormData } from '@/lib/schemas/forms';
 import { revalidatePath } from 'next/cache';
 
 const productRepository = new ProductRepository();
@@ -32,18 +29,22 @@ export async function getRevenueStreams() {
 export async function createProduct(data: ProductFormData) {
   try {
     const validatedData = productSchema.parse(data);
-    
+
     // Validate weight doesn't exceed 100% for the stream
     const isValidWeight = await productRepository.validateWeightUpdate(
       validatedData.productStreamId,
       null,
       validatedData.weight
     );
-    
+
     if (!isValidWeight) {
-      return { success: false, error: 'Total weight for products in this revenue stream would exceed 100%' };
+      return {
+        success: false,
+        error:
+          'Total weight for products in this revenue stream would exceed 100%',
+      };
     }
-    
+
     const result = await productRepository.create(validatedData);
     revalidatePath('/');
     return { success: true, data: result };
@@ -52,7 +53,6 @@ export async function createProduct(data: ProductFormData) {
     return { success: false, error: 'Failed to create product' };
   }
 }
-
 
 export async function updateProduct(
   id: number,
@@ -66,12 +66,16 @@ export async function updateProduct(
         id,
         data.weight
       );
-      
+
       if (!isValidWeight) {
-        return { success: false, error: 'Total weight for products in this revenue stream would exceed 100%' };
+        return {
+          success: false,
+          error:
+            'Total weight for products in this revenue stream would exceed 100%',
+        };
       }
     }
-    
+
     const result = await productRepository.update(id, data);
     revalidatePath('/');
     return { success: true, data: result };

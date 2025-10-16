@@ -117,12 +117,8 @@
           "name": "products_product_stream_id_revenue_streams_id_fk",
           "tableFrom": "products",
           "tableTo": "revenue_streams",
-          "columnsFrom": [
-            "product_stream_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_stream_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

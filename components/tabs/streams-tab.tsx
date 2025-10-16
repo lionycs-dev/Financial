@@ -73,7 +73,7 @@ export function StreamsTab() {
     }
   };
 
-  const handleEditStream = (stream: typeof streams[0]) => {
+  const handleEditStream = (stream: (typeof streams)[0]) => {
     setEditingStream({
       id: stream.id,
       name: stream.name,
@@ -96,29 +96,37 @@ export function StreamsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Revenue Streams</h2>
-        <Drawer open={open} onOpenChange={(open) => {
-          setOpen(open);
-          if (!open) {
-            setEditingStream(null);
-          }
-        }} direction="right">
+        <Drawer
+          open={open}
+          onOpenChange={(open) => {
+            setOpen(open);
+            if (!open) {
+              setEditingStream(null);
+            }
+          }}
+          direction="right"
+        >
           <DrawerTrigger asChild>
             <Button onClick={handleNewStream}>New Revenue Stream</Button>
           </DrawerTrigger>
           <DrawerContent className="max-h-[100vh] overflow-y-auto">
             <DrawerHeader>
               <DrawerTitle>
-                {editingStream ? 'Edit Revenue Stream' : 'Create New Revenue Stream'}
+                {editingStream
+                  ? 'Edit Revenue Stream'
+                  : 'Create New Revenue Stream'}
               </DrawerTitle>
               <DrawerDescription>
-                {editingStream 
-                  ? 'Update the revenue stream details.' 
-                  : 'Add a new revenue stream to organize your products.'
-                }
+                {editingStream
+                  ? 'Update the revenue stream details.'
+                  : 'Add a new revenue stream to organize your products.'}
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
-              <RevenueStreamForm onSuccess={handleSuccess} initialData={editingStream} />
+              <RevenueStreamForm
+                onSuccess={handleSuccess}
+                initialData={editingStream}
+              />
             </div>
             <DrawerFooter>
               <DrawerClose asChild>
@@ -152,8 +160,8 @@ export function StreamsTab() {
               </TableRow>
             ) : (
               streams.map((stream) => (
-                <TableRow 
-                  key={stream.id} 
+                <TableRow
+                  key={stream.id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleEditStream(stream)}
                 >

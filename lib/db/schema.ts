@@ -19,7 +19,7 @@ export const revenueTypeEnum = pgEnum('revenue_type', [
 
 export const clientGroupTypeEnum = pgEnum('client_group_type', [
   'B2B',
-  'B2C', 
+  'B2C',
   'DTC',
 ]);
 
@@ -38,7 +38,9 @@ export const products = pgTable('products', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   unitCost: decimal('unit_cost', { precision: 10, scale: 2 }).notNull(),
-  productStreamId: integer('product_stream_id').references(() => revenueStreams.id).notNull(),
+  productStreamId: integer('product_stream_id')
+    .references(() => revenueStreams.id)
+    .notNull(),
   weight: decimal('weight', { precision: 5, scale: 4 }).notNull(), // percentage as decimal, sum to 1 within stream
   pricingPlans: json('pricing_plans').notNull().default('[]'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

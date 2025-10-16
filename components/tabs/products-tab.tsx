@@ -211,7 +211,9 @@ export function ProductsTab() {
                   <TableCell>
                     {product.revenueStream ? (
                       <div>
-                        <div className="font-medium">{product.revenueStream.name}</div>
+                        <div className="font-medium">
+                          {product.revenueStream.name}
+                        </div>
                         <div className="text-sm text-muted-foreground">
                           {product.revenueStream.type}
                         </div>

@@ -25,12 +25,7 @@ export function ConnectionLine({
 
   return (
     <g>
-      <path
-        fill="none"
-        stroke="#6b7280"
-        strokeWidth={2}
-        d={edgePath}
-      />
+      <path fill="none" stroke="#6b7280" strokeWidth={2} d={edgePath} />
       <circle cx={toX} cy={toY} fill="#6b7280" r={3} />
     </g>
   );
