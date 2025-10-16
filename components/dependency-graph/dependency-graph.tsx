@@ -305,6 +305,8 @@ function DependencyGraphInner() {
     const targetType = connection.target.split('-')[0];
 
     // Define valid connection patterns
+    // Note: Circles (stream, clientgrouptype) cannot connect to each other
+    // Only diamonds (product, clientgroup) can connect to circles
     const validConnections = [
       { source: 'product', target: 'clientgroup' }, // Product can connect to ClientGroup
       { source: 'clientgroup', target: 'product' }, // ClientGroup can connect to Product
@@ -312,8 +314,6 @@ function DependencyGraphInner() {
       { source: 'product', target: 'product' }, // Product can convert to Product
       { source: 'product', target: 'clientgrouptype' }, // Product can connect to ClientGroupType
       { source: 'clientgrouptype', target: 'product' }, // ClientGroupType can connect to Product
-      { source: 'stream', target: 'clientgrouptype' }, // Revenue Stream can connect to ClientGroupType
-      { source: 'clientgrouptype', target: 'stream' }, // ClientGroupType can connect to Revenue Stream
     ];
 
     return validConnections.some(

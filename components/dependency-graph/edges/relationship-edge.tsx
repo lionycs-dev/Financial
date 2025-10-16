@@ -23,22 +23,22 @@ export function RelationshipEdge({
   const getEdgeStyle = () => {
     const relationshipType = data?.relationship || '';
 
-    // first_purchase - Pink/Purple solid
+    // first_purchase - Purple/Magenta solid
     if (relationshipType === 'first_purchase') {
       return {
         strokeWidth: 3,
         strokeDasharray: '',
-        stroke: '#ec4899', // pink
+        stroke: '#d946ef', // magenta/purple
         showArrow: true,
       };
     }
 
-    // existing_relationship - Orange solid
+    // existing_relationship - Yellow solid
     if (relationshipType === 'existing_relationship') {
       return {
         strokeWidth: 3,
         strokeDasharray: '',
-        stroke: '#f97316', // orange
+        stroke: '#fbbf24', // yellow
         showArrow: true,
       };
     }
