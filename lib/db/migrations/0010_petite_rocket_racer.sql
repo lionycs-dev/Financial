@@ -1,0 +1,2 @@
+CREATE TYPE "public"."relationship_type" AS ENUM('first_purchase', 'existing_relationship', 'upselling');--> statement-breakpoint
+ALTER TABLE "relationships" ALTER COLUMN "relationship_type" SET DATA TYPE "public"."relationship_type" USING "relationship_type"::"public"."relationship_type";

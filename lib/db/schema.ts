@@ -64,15 +64,27 @@ export const clientGroups = pgTable('client_groups', {
 export type ClientGroupSelect = typeof clientGroups.$inferSelect;
 export type ClientGroupInsert = typeof clientGroups.$inferInsert;
 
-// Unified Relationships table - handles remaining relationships (product_to_stream is now in products table)
+// Relationship type enum
+export const relationshipTypeEnum = pgEnum('relationship_type', [
+  'first_purchase', // Pink/Purple - when customer is acquired
+  'existing_relationship', // Orange - not generated from model
+  'upselling', // Blue - product to product with timing specification
+]);
+
+export type RelationshipType =
+  | 'first_purchase'
+  | 'existing_relationship'
+  | 'upselling';
+
+// Unified Relationships table - handles all relationships between entities
 export const relationships = pgTable('relationships', {
   id: serial('id').primaryKey(),
   sourceType: text('source_type').notNull(), // 'stream', 'product', 'clientGroup', 'clientGroupType'
   sourceId: integer('source_id').notNull(),
   targetType: text('target_type').notNull(), // 'stream', 'product', 'clientGroup', 'clientGroupType'
   targetId: integer('target_id').notNull(),
-  relationshipType: text('relationship_type').notNull(), // 'clientgroup_to_product', 'clientgroup_to_stream', 'product_conversion', 'clientgrouptype_to_product', 'clientgrouptype_to_stream'
-  properties: json('properties').notNull(), // { weight?, probability?, afterMonths? }
+  relationshipType: relationshipTypeEnum('relationship_type').notNull(),
+  properties: json('properties').notNull(), // { weight?, probability?, afterMonths?, timing? }
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

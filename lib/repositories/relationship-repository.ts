@@ -3,6 +3,7 @@ import {
   RelationshipInsert,
   relationships,
   RelationshipSelect,
+  RelationshipType,
 } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
@@ -52,7 +53,7 @@ export class RelationshipRepository {
     return result[0] || null;
   }
 
-  async getByType(relationshipType: string) {
+  async getByType(relationshipType: RelationshipType) {
     return await db
       .select()
       .from(relationships)

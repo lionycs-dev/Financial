@@ -5,7 +5,6 @@ import { EdgeProps, EdgeLabelRenderer, getSmoothStepPath } from 'reactflow';
 interface RelationshipEdgeData {
   relationship: string;
   properties?: Record<string, string | number>;
-  isAutomatic?: boolean;
   onEdit?: (id: string, data: RelationshipEdgeData) => void;
   onDelete?: (id: string) => void;
 }
@@ -20,55 +19,37 @@ export function RelationshipEdge({
   targetPosition,
   data,
 }: EdgeProps<RelationshipEdgeData>) {
-  // Get edge styling first to know if we need to adjust for arrow
+  // Get edge styling based on relationship type
   const getEdgeStyle = () => {
     const relationshipType = data?.relationship || '';
-    const isAutomatic = data?.isAutomatic || false;
 
-    // Automatic structural relationships
-    if (isAutomatic) {
-      if (relationshipType === 'belongs_to') {
-        return {
-          strokeWidth: 4,
-          strokeDasharray: '8,4',
-          stroke: '#10b981',
-          showArrow: true,
-        };
-      }
-      if (relationshipType === 'belongs_to_type') {
-        return {
-          strokeWidth: 4,
-          strokeDasharray: '6,3',
-          stroke: '#8b5cf6',
-          showArrow: true,
-        };
-      }
-    }
-
-    // User-created relationships
-    const clientGroupRelationships = [
-      'clientgroup_to_product',
-      'clientgroup_to_stream',
-      'clientgrouptype_to_product',
-      'clientgrouptype_to_stream',
-    ];
-
-    if (clientGroupRelationships.includes(relationshipType)) {
+    // first_purchase - Pink/Purple solid
+    if (relationshipType === 'first_purchase') {
       return {
-        strokeWidth: 2,
+        strokeWidth: 3,
         strokeDasharray: '',
-        // stroke: '#3b82f6',
-        showArrow: false,
+        stroke: '#ec4899', // pink
+        showArrow: true,
       };
     }
 
-    if (relationshipType.includes('product')) {
+    // existing_relationship - Orange solid
+    if (relationshipType === 'existing_relationship') {
       return {
-        strokeWidth: 2,
-        strokeDasharray: '10,5',
-        stroke: '#f59e0b',
+        strokeWidth: 3,
+        strokeDasharray: '',
+        stroke: '#f97316', // orange
         showArrow: true,
-        animation: 'dash 2s linear infinite',
+      };
+    }
+
+    // upselling - Blue dashed
+    if (relationshipType === 'upselling') {
+      return {
+        strokeWidth: 3,
+        strokeDasharray: '5,5',
+        stroke: '#3b82f6', // blue
+        showArrow: true,
       };
     }
 
@@ -85,18 +66,6 @@ export function RelationshipEdge({
 
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-
-    // Don't show context menu for automatic relationships
-    const relationshipType = data?.relationship || '';
-    const isAutomatic = data?.isAutomatic || false;
-
-    if (
-      isAutomatic ||
-      relationshipType === 'belongs_to' ||
-      relationshipType === 'belongs_to_type'
-    ) {
-      return;
-    }
 
     console.log('Edge right-clicked:', {
       id,
@@ -188,20 +157,6 @@ export function RelationshipEdge({
         >
           <polygon points="0 0, 12 4, 0 8" fill={edgeStyle.stroke} />
         </marker>
-        {edgeStyle.animation && (
-          <style>
-            {`
-              @keyframes dash {
-                to {
-                  stroke-dashoffset: -15;
-                }
-              }
-              .animated-${id} {
-                animation: ${edgeStyle.animation};
-              }
-            `}
-          </style>
-        )}
       </defs>
       <path
         id={id}
@@ -210,7 +165,7 @@ export function RelationshipEdge({
           strokeWidth: edgeStyle.strokeWidth,
           strokeDasharray: edgeStyle.strokeDasharray,
         }}
-        className={`react-flow__edge-path hover:opacity-80 ${data?.isAutomatic || data?.relationship === 'belongs_to' || data?.relationship === 'belongs_to_type' ? '' : 'cursor-context-menu'} ${edgeStyle.animation ? `animated-${id}` : ''}`}
+        className="react-flow__edge-path hover:opacity-80 cursor-context-menu"
         d={edgePath}
         markerEnd={edgeStyle.showArrow ? `url(#arrowhead-${id})` : undefined}
         onContextMenu={onContextMenu}
@@ -223,7 +178,7 @@ export function RelationshipEdge({
             fontSize: 10,
             pointerEvents: 'all',
           }}
-          className={`nodrag nopan bg-white px-2 py-1 rounded border text-xs text-gray-600 hover:bg-gray-50 ${data?.isAutomatic || data?.relationship === 'belongs_to' || data?.relationship === 'belongs_to_type' ? '' : 'cursor-context-menu'}`}
+          className="nodrag nopan bg-white px-2 py-1 rounded border text-xs text-gray-600 hover:bg-gray-50 cursor-context-menu"
           onContextMenu={onContextMenu}
         >
           {data?.relationship || 'relationship'}

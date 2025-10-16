@@ -1,6 +1,7 @@
 'use server';
 
 import { RelationshipRepository } from '@/lib/repositories/relationship-repository';
+import { RelationshipType } from '@/lib/db/schema';
 import { revalidatePath } from 'next/cache';
 
 const relationshipRepository = new RelationshipRepository();
@@ -11,7 +12,7 @@ export interface UnifiedRelationship {
   sourceId: number;
   targetType: string;
   targetId: number;
-  relationshipType: string;
+  relationshipType: RelationshipType;
   properties: Record<string, string | number>;
   createdAt: Date;
   updatedAt: Date;
@@ -34,7 +35,7 @@ export async function createRelationship(data: {
   sourceId: number | string;
   targetType: string;
   targetId: number | string;
-  relationshipType: string;
+  relationshipType: RelationshipType;
   properties: Record<string, string | number>;
 }) {
   try {

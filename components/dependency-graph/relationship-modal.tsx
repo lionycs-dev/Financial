@@ -31,14 +31,7 @@ import { z } from 'zod';
 import React from 'react';
 
 const relationshipSchema = z.object({
-  type: z.enum([
-    'clientgroup_to_product',
-    'clientgroup_to_stream',
-    'product_conversion',
-    'clientgrouptype_to_product',
-    'clientgrouptype_to_stream',
-    'product_to_clientgrouptype',
-  ]),
+  type: z.enum(['first_purchase', 'existing_relationship', 'upselling']),
   weight: z
     .string()
     .min(1, 'Weight is required')
@@ -66,13 +59,7 @@ const relationshipSchema = z.object({
     }),
 });
 
-type RelationshipType =
-  | 'clientgroup_to_product'
-  | 'clientgroup_to_stream'
-  | 'product_conversion'
-  | 'clientgrouptype_to_product'
-  | 'clientgrouptype_to_stream'
-  | 'product_to_clientgrouptype';
+type RelationshipType = 'first_purchase' | 'existing_relationship' | 'upselling';
 type RelationshipFormData = z.infer<typeof relationshipSchema>;
 
 interface RelationshipModalProps {
@@ -98,9 +85,7 @@ export function RelationshipModal({
 
   const validTypes = getValidRelationshipTypes(sourceType, targetType);
   const defaultType: RelationshipType =
-    validTypes.length > 0
-      ? validTypes[0].value
-      : getRelationshipType(sourceType, targetType);
+    validTypes.length > 0 ? validTypes[0].value : 'first_purchase';
 
   const form = useForm<RelationshipFormData>({
     resolver: zodResolver(relationshipSchema),
@@ -126,93 +111,30 @@ export function RelationshipModal({
     }
   }, [editData, defaultType, form]);
 
-  function getRelationshipType(
-    source: string,
-    target: string
-  ): RelationshipType {
-    if (source === 'product' && target === 'clientGroup')
-      return 'clientgroup_to_product';
-    if (source === 'clientGroup' && target === 'product')
-      return 'clientgroup_to_product';
-    if (source === 'clientGroup' && target === 'stream')
-      return 'clientgroup_to_stream';
-    if (source === 'product' && target === 'product')
-      return 'product_conversion';
-    if (source === 'product' && target === 'clientGroupType')
-      return 'product_to_clientgrouptype';
-    if (source === 'clientGroupType' && target === 'product')
-      return 'clientgrouptype_to_product';
-    if (source === 'stream' && target === 'clientGroupType')
-      return 'clientgrouptype_to_stream'; // Always use clientgrouptype_to_stream regardless of direction
-    if (source === 'clientGroupType' && target === 'stream')
-      return 'clientgrouptype_to_stream';
-    return 'clientgroup_to_product'; // fallback
-  }
-
   function getValidRelationshipTypes(
     source: string,
     target: string
   ): Array<{ value: RelationshipType; label: string }> {
     const validTypes: Array<{ value: RelationshipType; label: string }> = [];
 
-    if (source === 'product' && target === 'clientGroup') {
-      validTypes.push({
-        value: 'clientgroup_to_product',
-        label: 'Client Group purchases Product',
-      });
-    }
-
-    // Support both directions for clientGroup <-> product relationships
-    if (source === 'clientGroup' && target === 'product') {
-      validTypes.push({
-        value: 'clientgroup_to_product',
-        label: 'Client Group purchases Product',
-      });
-    }
-
-    // Support clientGroup to revenue stream relationships
-    if (source === 'clientGroup' && target === 'stream') {
-      validTypes.push({
-        value: 'clientgroup_to_stream',
-        label: 'Client Group purchases from Revenue Stream',
-      });
-    }
-
+    // Product to Product: only upselling
     if (source === 'product' && target === 'product') {
       validTypes.push({
-        value: 'product_conversion',
-        label: 'Product Conversion',
+        value: 'upselling',
+        label: 'Upselling (product to product with timing)',
       });
+      return validTypes;
     }
 
-    // Client Group Type relationships
-    if (source === 'product' && target === 'clientGroupType') {
-      validTypes.push({
-        value: 'product_to_clientgrouptype',
-        label: 'Product targets Client Group Type',
-      });
-    }
-
-    if (source === 'clientGroupType' && target === 'product') {
-      validTypes.push({
-        value: 'clientgrouptype_to_product',
-        label: 'Client Group Type purchases Product',
-      });
-    }
-
-    if (source === 'stream' && target === 'clientGroupType') {
-      validTypes.push({
-        value: 'clientgrouptype_to_stream',
-        label: 'Client Group Type connects to Revenue Stream',
-      });
-    }
-
-    if (source === 'clientGroupType' && target === 'stream') {
-      validTypes.push({
-        value: 'clientgrouptype_to_stream',
-        label: 'Client Group Type purchases from Revenue Stream',
-      });
-    }
+    // All other connections can be first_purchase or existing_relationship
+    validTypes.push({
+      value: 'first_purchase',
+      label: 'First Purchase (when customer is acquired)',
+    });
+    validTypes.push({
+      value: 'existing_relationship',
+      label: 'Existing Relationship',
+    });
 
     return validTypes;
   }
@@ -283,12 +205,9 @@ export function RelationshipModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {relationshipType === 'clientgroup_to_product' &&
-                      'Purchase Mix Weight'}
-                    {relationshipType === 'clientgroup_to_stream' &&
-                      'Purchase Mix Weight'}
-                    {relationshipType === 'product_conversion' &&
-                      'Conversion Weight'}
+                    {relationshipType === 'first_purchase' && 'Weight'}
+                    {relationshipType === 'existing_relationship' && 'Weight'}
+                    {relationshipType === 'upselling' && 'Weight'}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -305,14 +224,14 @@ export function RelationshipModal({
               )}
             />
 
-            {relationshipType === 'product_conversion' && (
+            {relationshipType === 'upselling' && (
               <>
                 <FormField
                   control={form.control}
                   name="probability"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Conversion Probability</FormLabel>
+                      <FormLabel>Probability</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
