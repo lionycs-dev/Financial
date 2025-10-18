@@ -67,9 +67,18 @@ const calculateCircleSize = (childCount: number): number => {
   const cols = Math.ceil(Math.sqrt(childCount));
   const rows = Math.ceil(childCount / cols);
 
-  // Each diamond needs ~120px space, plus padding
-  const gridWidth = cols * 120 + 100; // Extra padding
-  const gridHeight = rows * 120 + 100;
+  // Each diamond needs ~120px space, plus extra padding for more children
+  let basePadding = 100;
+  let cellSize = 120;
+
+  // Increase padding and cell size for more than 2 children
+  if (childCount >= 2) {
+    basePadding = 150; // More generous padding
+    cellSize = 140; // More space between diamonds
+  }
+
+  const gridWidth = cols * cellSize + basePadding;
+  const gridHeight = rows * cellSize + basePadding;
 
   // Circle diameter should fit the grid
   const requiredSize = Math.max(gridWidth, gridHeight, 350);
@@ -89,9 +98,16 @@ const createGridLayout = (
 
   const positions: { x: number; y: number }[] = [];
 
+  // Use same cell size logic as calculateCircleSize
+  let cellWidth = 120;
+  let cellHeight = 120;
+
+  if (childCount > 2) {
+    cellWidth = 140;
+    cellHeight = 140;
+  }
+
   // Center the grid within the circle
-  const cellWidth = 120;
-  const cellHeight = 120;
   const gridWidth = cols * cellWidth;
   const gridHeight = rows * cellHeight;
 
@@ -476,14 +492,16 @@ function DependencyGraphInner() {
 
           // Handle clientGroupType ID mapping (string to number)
           if (connectionData.sourceType === 'clientGroupType') {
-            const stringId = sourceIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+            const stringId =
+              sourceIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
             finalSourceId = CLIENT_GROUP_TYPE_IDS[stringId];
           } else {
             finalSourceId = parseInt(sourceIdParts[1]);
           }
 
           if (connectionData.targetType === 'clientGroupType') {
-            const stringId = targetIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
+            const stringId =
+              targetIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
             finalTargetId = CLIENT_GROUP_TYPE_IDS[stringId];
           } else {
             finalTargetId = parseInt(targetIdParts[1]);
