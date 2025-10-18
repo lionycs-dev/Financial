@@ -103,6 +103,15 @@ export const clientGroupSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   type: z.enum(['B2B', 'B2C', 'DTC']),
   startingCustomers: z.number().min(1, 'Starting customers must be at least 1'),
+  conversionRate: z
+    .string()
+    .min(1, 'Conversion rate is required')
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 1,
+      {
+        message: 'Conversion rate must be between 0 and 1',
+      }
+    ),
   churnRate: z
     .string()
     .min(1, 'Churn rate is required')

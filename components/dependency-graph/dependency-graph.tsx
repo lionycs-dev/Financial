@@ -165,6 +165,7 @@ type ClientGroupData = {
   name: string;
   type: 'B2B' | 'B2C' | 'DTC';
   startingCustomers: number;
+  conversionRate: string;
   churnRate: string;
 };
 
@@ -265,10 +266,7 @@ function saveLayoutToStorage(nodes: Node[]): void {
       {} as Record<string, { x: number; y: number }>
     );
 
-    localStorage.setItem(
-      STORAGE_KEYS.LAYOUT,
-      JSON.stringify(positions)
-    );
+    localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(positions));
   } catch (error) {
     console.warn('Failed to save layout to localStorage:', error);
   }
@@ -363,6 +361,7 @@ function createClientGroupNodes(clientGroups: ClientGroupData[]): Node[] {
       name: group.name,
       type: group.type,
       startingCustomers: group.startingCustomers,
+      conversionRate: group.conversionRate,
       churnRate: group.churnRate,
     },
   }));
@@ -489,8 +488,7 @@ function applyDefaultLayout(
   );
 
   // Calculate spacing
-  const horizontalSpacing =
-    maxCircleSize + LAYOUT_CONFIG.CIRCLE_SPACING_BUFFER;
+  const horizontalSpacing = maxCircleSize + LAYOUT_CONFIG.CIRCLE_SPACING_BUFFER;
   const verticalSpacing = maxCircleSize + LAYOUT_CONFIG.CIRCLE_SPACING_BUFFER;
 
   const layoutedNodes: Node[] = [];
@@ -532,9 +530,7 @@ function applyDefaultLayout(
 /**
  * Groups client group nodes by their type (B2B, B2C, DTC).
  */
-function groupClientGroupsByType(
-  clientGroups: Node[]
-): Record<string, Node[]> {
+function groupClientGroupsByType(clientGroups: Node[]): Record<string, Node[]> {
   const groups: Record<string, Node[]> = { B2B: [], B2C: [], DTC: [] };
 
   clientGroups.forEach((node) => {

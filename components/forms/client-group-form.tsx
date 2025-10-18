@@ -51,6 +51,7 @@ export function ClientGroupForm({ onSuccess }: ClientGroupFormProps) {
     defaultValues: {
       name: '',
       startingCustomers: 0,
+      conversionRate: '',
       churnRate: '',
     },
   });
@@ -149,21 +150,46 @@ export function ClientGroupForm({ onSuccess }: ClientGroupFormProps) {
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="startingCustomers"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Starting Customers</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  placeholder="100"
+                  {...field}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="startingCustomers"
+            name="conversionRate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Starting Customers</FormLabel>
+                <FormLabel>Conversion Rate (New Customers)</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="100"
+                    step="0.01"
+                    min="0"
+                    max="1"
+                    placeholder="0.10"
                     {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
                   />
                 </FormControl>
+                <FormDescription>
+                  Monthly new customer acquisition rate as decimal (e.g., 0.10
+                  for 10%)
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -186,7 +212,7 @@ export function ClientGroupForm({ onSuccess }: ClientGroupFormProps) {
                   />
                 </FormControl>
                 <FormDescription>
-                  Monthly churn rate as decimal (e.g., 0.05 for 5%)
+                  Monthly customer loss rate as decimal (e.g., 0.05 for 5%)
                 </FormDescription>
                 <FormMessage />
               </FormItem>

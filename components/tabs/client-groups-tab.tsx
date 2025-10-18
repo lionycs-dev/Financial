@@ -30,6 +30,7 @@ export function ClientGroupsTab() {
       name: string;
       type: 'B2B' | 'B2C' | 'DTC';
       startingCustomers: number;
+      conversionRate: string;
       churnRate: string;
       createdAt: Date;
       updatedAt: Date;
@@ -42,6 +43,7 @@ export function ClientGroupsTab() {
     name: string;
     type: 'B2B' | 'B2C' | 'DTC';
     startingCustomers: number;
+    conversionRate: string;
     churnRate: string;
   } | null>(null);
 
@@ -77,6 +79,7 @@ export function ClientGroupsTab() {
       name: group.name,
       type: group.type,
       startingCustomers: group.startingCustomers,
+      conversionRate: group.conversionRate,
       churnRate: group.churnRate,
     });
     setOpen(true);
@@ -143,6 +146,7 @@ export function ClientGroupsTab() {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Starting Customers</TableHead>
+              <TableHead>Conversion Rate</TableHead>
               <TableHead>Churn Rate</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
@@ -151,7 +155,7 @@ export function ClientGroupsTab() {
             {clientGroups.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center text-muted-foreground"
                 >
                   No client groups found. Create your first one to get started.
@@ -172,6 +176,9 @@ export function ClientGroupsTab() {
                   </TableCell>
                   <TableCell>
                     {group.startingCustomers.toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    {(Number(group.conversionRate) * 100).toFixed(1)}%
                   </TableCell>
                   <TableCell>
                     {(Number(group.churnRate) * 100).toFixed(1)}%

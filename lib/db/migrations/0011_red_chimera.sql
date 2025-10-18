@@ -1,0 +1,1 @@
+ALTER TABLE "client_groups" ADD COLUMN "conversion_rate" numeric(5, 4) DEFAULT '0' NOT NULL;

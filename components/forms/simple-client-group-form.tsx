@@ -34,6 +34,15 @@ const simpleClientGroupSchema = z.object({
     .refine((val) => !isNaN(Number(val)) && Number(val) >= 1, {
       message: 'Starting customers must be at least 1',
     }),
+  conversionRate: z
+    .string()
+    .min(1, 'Conversion rate is required')
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 1,
+      {
+        message: 'Conversion rate must be between 0 and 1',
+      }
+    ),
   churnRate: z
     .string()
     .min(1, 'Churn rate is required')
@@ -54,6 +63,7 @@ interface SimpleClientGroupFormProps {
     name: string;
     type: 'B2B' | 'B2C' | 'DTC';
     startingCustomers: number;
+    conversionRate: string;
     churnRate: string;
   } | null;
 }
@@ -72,6 +82,7 @@ export function SimpleClientGroupForm({
       name: initialData?.name || '',
       type: initialData?.type || 'B2B',
       startingCustomers: initialData?.startingCustomers?.toString() || '',
+      conversionRate: initialData?.conversionRate || '',
       churnRate: initialData?.churnRate || '',
     },
   });
@@ -83,6 +94,7 @@ export function SimpleClientGroupForm({
         name: initialData.name,
         type: initialData.type,
         startingCustomers: initialData.startingCustomers.toString(),
+        conversionRate: initialData.conversionRate,
         churnRate: initialData.churnRate,
       });
     }
@@ -101,6 +113,7 @@ export function SimpleClientGroupForm({
         name: values.name,
         type: values.type,
         startingCustomers: parseInt(values.startingCustomers),
+        conversionRate: values.conversionRate,
         churnRate: values.churnRate,
       };
 
@@ -174,16 +187,40 @@ export function SimpleClientGroupForm({
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="startingCustomers"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Starting Customers</FormLabel>
+              <FormControl>
+                <Input type="number" placeholder="100" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="startingCustomers"
+            name="conversionRate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Starting Customers</FormLabel>
+                <FormLabel>Conversion Rate (New Customers)</FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="100" {...field} />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="1"
+                    placeholder="0.10"
+                    {...field}
+                  />
                 </FormControl>
+                <FormDescription>
+                  Monthly new customer acquisition rate (e.g., 0.10 for 10%)
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -206,7 +243,7 @@ export function SimpleClientGroupForm({
                   />
                 </FormControl>
                 <FormDescription>
-                  Monthly churn rate as decimal (e.g., 0.05 for 5%)
+                  Monthly customer loss rate (e.g., 0.05 for 5%)
                 </FormDescription>
                 <FormMessage />
               </FormItem>

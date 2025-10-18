@@ -1,6 +1,6 @@
 {
-  "id": "40cfaa24-22fa-4bec-8b69-54c13741dbd8",
-  "prevId": "23f9585e-cedc-409c-bb05-cf4572ec7144",
+  "id": "1c5a7d89-562a-49e5-8f49-42698d5f9121",
+  "prevId": "40cfaa24-22fa-4bec-8b69-54c13741dbd8",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -25,6 +25,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "conversion_rate": {
+          "name": "conversion_rate",
+          "type": "numeric(5, 4)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
         },
         "churn_rate": {
           "name": "churn_rate",

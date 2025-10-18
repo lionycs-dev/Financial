@@ -74,7 +74,7 @@ The dependency graph is the core feature of this application, providing an inter
 
 ### Location
 
-- **Main Component**: `components/dependency-graph/dependency-graph.tsx`
+- **Main Component**: `components/dependency-graph/dependency-graph.tsx` (1100+ lines, production-quality)
 - **Node Components**: `components/dependency-graph/nodes/`
 - **Edge Components**: `components/dependency-graph/edges/`
 - **Supporting Components**: `components/dependency-graph/`
@@ -83,49 +83,83 @@ The dependency graph is the core feature of this application, providing an inter
 
 Built with **ReactFlow**, a powerful library for building node-based graphs.
 
+**Visual Pattern**: The graph uses a **container/child architecture** where:
+
+- **Circles** act as containers (StreamNode, ClientGroupTypeNode)
+- **Diamonds** are child nodes positioned inside circles (ProductNode, ClientGroupNode)
+- Circles dynamically resize based on the number of children they contain
+- Moving a circle automatically moves all its children (parent-child relationship)
+
+### Visual Hierarchy & Z-Index
+
+The graph uses a carefully designed z-index system to ensure proper layering:
+
+```typescript
+const Z_INDEX = {
+  CIRCLE: 1, // Background layer - container nodes
+  EDGE: 5, // Middle layer - relationship edges
+  DIAMOND: 10, // Foreground layer - child nodes
+};
+```
+
+This ensures:
+
+- Edges render above circles (not hidden behind containers)
+- Diamond nodes always appear on top (interactive elements)
+- Clear visual hierarchy for user interaction
+
 ### Node Types
 
-#### 1. StreamNode (Revenue Stream)
+#### 1. StreamNode (Revenue Stream) - **Circle Container**
 
 - **File**: `nodes/stream-node.tsx`
-- **Color**: Green (bg-green-200, border-green-600)
+- **Shape**: Large circle (350px+ diameter, dynamically sized)
+- **Color**: Green (bg-green-100/50, border-4 border-green-400)
 - **Icon**: TrendingUp
+- **Role**: Container for ProductNode children
 - **Handles**:
-  - `belongs_to` (source, bottom, hidden) - For automatic product connections
-  - `stream_target` (target, left) - For incoming client group/type connections
-- **Data**: name, type, description
+  - 4 target handles (top, right, bottom, left) - For incoming connections
+- **Data**: `{ id: number, name: string, type: string, description?: string | null, circleSize?: number }`
+- **Dynamic Sizing**: Automatically resizes to fit child products using grid layout
 
-#### 2. ProductNode
+#### 2. ProductNode (Product) - **Diamond Child**
 
 - **File**: `nodes/product-node.tsx`
-- **Color**: Light green (bg-green-50, border-green-200)
+- **Shape**: Diamond (100x100px, rotated 45°)
+- **Color**: Green (bg-green-300, border-3 border-green-700)
 - **Icon**: Package
+- **Role**: Child node positioned inside parent StreamNode circle
+- **Parent**: `parentNode: 'stream_{streamId}'`, `extent: 'parent'`
 - **Handles**:
-  - `belongs_to_{productId}` (target, top, hidden) - For revenue stream connections
-  - `product_target` (target, left) - For incoming connections
-  - `product_to_product` (source, right) - For product conversion connections
-- **Data**: name, unitCost, productStreamId, weight
+  - 4 handles total (2 source, 2 target) for connections
+- **Data**: `{ id: number, name: string, unitCost: string, productStreamId: number }`
+- **Positioning**: Grid layout within parent circle (relative coordinates)
 
-#### 3. ClientGroupNode
+#### 3. ClientGroupNode (Client Group) - **Diamond Child**
 
 - **File**: `nodes/client-group-node.tsx`
-- **Color**: Purple (bg-purple-50, border-purple-200)
+- **Shape**: Diamond (100x100px, rotated 45°)
+- **Color**: Purple (bg-purple-300, border-3 border-purple-700)
 - **Icon**: Users
+- **Role**: Child node positioned inside parent ClientGroupTypeNode circle
+- **Parent**: `parentNode: 'clientgrouptype_{type}'`, `extent: 'parent'`
 - **Handles**:
-  - `clientgrouptype_target` (target, top, hidden) - For client group type connections
-  - `clientgroup_to_stream_product` (source, right) - For outgoing connections
-- **Data**: name, type, startingCustomers, churnRate
+  - 4 handles total (2 source, 2 target) for connections
+- **Data**: `{ id: number, name: string, startingCustomers: number, churnRate: string, type: 'B2B' | 'B2C' | 'DTC' }`
+- **Positioning**: Grid layout within parent circle (relative coordinates)
 
-#### 4. ClientGroupTypeNode
+#### 4. ClientGroupTypeNode (Client Group Type) - **Circle Container**
 
 - **File**: `nodes/client-group-type-node.tsx`
-- **Color**: Dark purple (bg-purple-200, border-purple-600)
+- **Shape**: Large circle (350px+ diameter, dynamically sized)
+- **Color**: Purple (bg-purple-100/50, border-4 border-purple-400)
 - **Icon**: Tag
 - **Types**: B2B, B2C, DTC (hardcoded)
+- **Role**: Container for ClientGroupNode children
 - **Handles**:
-  - `clientgrouptype_to_clientgroup` (source, bottom, hidden) - For client group connections
-  - `clientgrouptype_to_stream_product` (source, right) - For stream/product connections
-- **Data**: id (string), name, type, description
+  - 4 source handles (top, right, bottom, left) - For outgoing connections
+- **Data**: `{ id: string, name: string, type: 'B2B' | 'B2C' | 'DTC', description?: string, circleSize?: number }`
+- **Dynamic Sizing**: Automatically resizes to fit child client groups using grid layout
 
 ### Relationship Types
 
@@ -179,27 +213,69 @@ Features:
 
 ### Layout System
 
-#### Auto-Layout
+The layout system intelligently positions nodes and manages dynamic sizing based on content.
 
-- Default structured layout with columns:
-  - Left: Client Group Types & Client Groups
-  - Center/Right: Products
-  - Top: Revenue Streams
-- Spacing: 280px horizontal, 180px vertical
+#### Dynamic Circle Sizing
+
+Circles automatically resize to fit their children using a grid-based algorithm:
+
+```typescript
+// Layout configuration constants
+const LAYOUT_CONFIG = {
+  DEFAULT_CIRCLE_SIZE: 350, // Minimum circle size
+  SMALL_CELL_SIZE: 120, // Grid cell size for < 2 children
+  LARGE_CELL_SIZE: 140, // Grid cell size for >= 2 children
+  SMALL_PADDING: 100, // Padding for < 2 children
+  LARGE_PADDING: 150, // Padding for >= 2 children
+  LARGE_CHILD_THRESHOLD: 2, // Threshold for larger grid
+  DIAMOND_SIZE: 100, // Size of diamond nodes
+};
+```
+
+**Sizing Algorithm** (`calculateCircleSize()`):
+
+1. If no children: return default size (350px)
+2. Calculate grid dimensions: `cols = ceil(sqrt(childCount))`, `rows = ceil(childCount / cols)`
+3. If childCount >= 2: use LARGE grid (140px cells, 150px padding)
+4. If childCount < 2: use SMALL grid (120px cells, 100px padding)
+5. Return max of (gridWidth, gridHeight, DEFAULT_CIRCLE_SIZE)
+
+**Grid Layout** (`createGridLayout()`):
+
+- Positions children in a centered grid within the parent circle
+- Uses relative coordinates (parent-relative positioning)
+- Evenly distributes children across rows and columns
+- Centers the grid within the circle using calculated offsets
+
+#### Positional Layout
+
+**Default Layout**:
+
+- Client Group Types positioned in left column
+- Client Groups positioned inside their parent type circles (grid layout)
+- Revenue Streams positioned in top-right area
+- Products positioned inside their parent stream circles (grid layout)
+- Horizontal spacing: 600-700px between columns
+- Vertical spacing: Calculated based on circle sizes
+
+**Key Layout Functions**:
+
+- `getLayoutedElements(nodes, edges)` - Main layout orchestrator
+- `calculateCircleSize(childCount)` - Dynamic circle sizing
+- `createGridLayout(childCount, circleSize, diamondSize)` - Grid positioning for children
+- `groupClientGroupsByType(clientGroups)` - Groups children by parent type
+- `calculateMaxCircleSize(groups)` - Finds largest circle needed for spacing
 
 #### Saved Layout
 
-- Positions saved to `localStorage` as `dependency-graph-layout`
-- Auto-saves on node drag (debounced 300ms)
-- **Reset Layout** button clears saved positions and reapplies default layout
-- Persists across page refreshes
-
-#### Layout Functions
-
-- `saveLayoutToStorage(nodes)` - Saves node positions to localStorage
-- `loadLayoutFromStorage()` - Loads saved positions
-- `getLayoutedElements(nodes, edges)` - Applies layout (saved or default)
-- `resetLayout()` - Clears saved layout and reapplies default
+- **Storage**: Positions saved to `localStorage` as `dependency-graph-layout`
+- **Auto-save**: Triggers on node drag (debounced 300ms)
+- **Reset Layout**: Button clears saved positions and reapplies default algorithm
+- **Persistence**: Maintains user-customized positions across page refreshes
+- **Functions**:
+  - `saveLayoutToStorage(nodes)` - Saves node positions to localStorage
+  - `loadLayoutFromStorage()` - Loads saved positions, falls back to null if missing
+  - `resetLayout()` - Clears storage and triggers full re-layout
 
 ### Client Group Type ID Mapping
 
@@ -260,15 +336,168 @@ The graph automatically reloads data when:
 7. **Controls** for zoom/pan
 8. **Background grid** for visual reference
 
+### Code Architecture & Production Quality
+
+The dependency graph codebase follows strict production standards with emphasis on maintainability and type safety.
+
+#### Code Organization
+
+The main component (`dependency-graph.tsx`) is organized into clear sections:
+
+1. **Imports & Type Definitions** - All dependencies and TypeScript types
+2. **Constants** - All magic numbers extracted into named constants
+3. **Helper Functions** - Reusable utility functions
+4. **Main Component** - React component logic
+5. **Event Handlers** - User interaction handlers
+6. **Effects & Lifecycle** - useEffect hooks and data loading
+
+#### Constants (No Magic Numbers)
+
+All configuration values are extracted into typed constant objects:
+
+```typescript
+const Z_INDEX = {
+  CIRCLE: 1,
+  EDGE: 5,
+  DIAMOND: 10,
+} as const;
+
+const LAYOUT_CONFIG = {
+  DEFAULT_CIRCLE_SIZE: 350,
+  SMALL_CELL_SIZE: 120,
+  LARGE_CELL_SIZE: 140,
+  SMALL_PADDING: 100,
+  LARGE_PADDING: 150,
+  LARGE_CHILD_THRESHOLD: 2,
+  DIAMOND_SIZE: 100,
+  CIRCLE_SPACING_BUFFER: 150,
+  START_X: 200,
+  START_Y: 200,
+  HORIZONTAL_COLUMN_MULTIPLIER: 2,
+} as const;
+
+const TIMING = {
+  DEBOUNCE_MS: 300,
+  REFRESH_DELAY_MS: 100,
+} as const;
+
+const STORAGE_KEYS = {
+  LAYOUT: 'dependency-graph-layout',
+} as const;
+```
+
+#### Helper Functions
+
+Reusable functions with single responsibilities and comprehensive JSDoc documentation:
+
+**Node Creation**:
+
+- `createStreamNodes(streams)` - Creates stream circle nodes with data
+- `createProductNodes(products)` - Creates product diamond nodes with parent relationships
+- `createClientGroupNodes(clientGroups)` - Creates client group diamond nodes with parent relationships
+- `createClientGroupTypeNodes(groupsByType)` - Creates type circle nodes
+
+**Layout Utilities**:
+
+- `calculateCircleSize(childCount)` - Calculates dynamic circle size based on children
+- `createGridLayout(childCount, circleSize, diamondSize)` - Generates grid positions for children
+- `groupClientGroupsByType(clientGroups)` - Groups client groups by type for layout
+- `calculateMaxCircleSize(groups)` - Finds maximum circle size needed
+
+**Type Conversion**:
+
+- `normalizeNodeType(type)` - Converts node type to normalized format for edges
+- `denormalizeNodeType(type)` - Converts normalized type back to NodeType
+- `createNodeId(type, id)` - Generates consistent node IDs
+
+#### Type Safety
+
+- **No `any` types** - All functions use proper TypeScript types
+- **Strict type definitions**:
+
+  ```typescript
+  type StreamData = {
+    id: number;
+    name: string;
+    type: string;
+    description?: string | null;
+  };
+
+  type ProductData = {
+    id: number;
+    name: string;
+    unitCost: string;
+    productStreamId: number;
+  };
+
+  type ClientGroupData = {
+    id: number;
+    name: string;
+    type: 'B2B' | 'B2C' | 'DTC';
+    startingCustomers: number;
+    churnRate: string;
+  };
+  ```
+
+- **Explicit type annotations** where inference is insufficient
+- **Type guards** for runtime type checking
+
+#### JSDoc Documentation
+
+All major functions include comprehensive JSDoc comments:
+
+```typescript
+/**
+ * Calculates the appropriate circle size based on the number of children.
+ * Uses a grid layout algorithm with different spacing for different child counts.
+ *
+ * @param childCount - Number of child nodes to fit inside the circle
+ * @returns The calculated circle diameter in pixels
+ */
+function calculateCircleSize(childCount: number): number {
+  // Implementation...
+}
+```
+
+#### Production Standards
+
+✅ **Code Quality**:
+
+- No magic numbers - all values are named constants
+- Single Responsibility Principle - each function has one clear purpose
+- DRY (Don't Repeat Yourself) - common logic extracted into helpers
+- Clear naming conventions - descriptive variable and function names
+
+✅ **Type Safety**:
+
+- Strict TypeScript with no `any` types
+- Proper type definitions for all data structures
+- Type guards for runtime safety
+
+✅ **Documentation**:
+
+- JSDoc comments on all major functions
+- Inline comments for complex algorithms
+- README sections for architecture overview
+
+✅ **Maintainability**:
+
+- Clear code organization with section dividers
+- Reusable helper functions
+- Consistent patterns throughout
+
 ### Working with the Dependency Graph
 
 #### Adding a New Node Type
 
 1. Create node component in `components/dependency-graph/nodes/`
 2. Define handles with unique IDs
-3. Add to `NODE_TYPES` in `dependency-graph.tsx`
-4. Update `isValidConnection` for connection rules
-5. Update `getLayoutedElements` for positioning
+3. Add TypeScript type definition for node data
+4. Create helper function (e.g., `createMyNodeNodes()`)
+5. Add to `NODE_TYPES` in `dependency-graph.tsx`
+6. Update `isValidConnection` for connection rules
+7. Update `getLayoutedElements` for positioning
+8. Update `normalizeNodeType` and `denormalizeNodeType` utilities
 
 #### Adding a New Relationship Type
 
@@ -277,13 +506,17 @@ The graph automatically reloads data when:
 3. Add edge styling in `relationship-edge.tsx`
 4. Update handle connections in `handleSaveRelationship`
 5. Update server action `createRelationship`
+6. Update `normalizeNodeType` if needed for new node types
 
 #### Debugging Tips
 
 - Check browser console for edge filtering warnings
-- Verify node IDs match edge source/target IDs
+- Verify node IDs match edge source/target IDs (use `createNodeId()` helper)
 - Ensure handles have matching IDs on both nodes
 - Check `CLIENT_GROUP_TYPE_IDS` mapping for type nodes
+- Verify z-index is set correctly (use `Z_INDEX` constants)
+- Check parent-child relationships for diamond nodes (`parentNode`, `extent`)
+- Validate grid layout calculations with different child counts
 
 ### Code Quality & Linting
 

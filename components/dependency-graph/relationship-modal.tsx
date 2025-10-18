@@ -59,7 +59,10 @@ const relationshipSchema = z.object({
     }),
 });
 
-type RelationshipType = 'first_purchase' | 'existing_relationship' | 'upselling';
+type RelationshipType =
+  | 'first_purchase'
+  | 'existing_relationship'
+  | 'upselling';
 type RelationshipFormData = z.infer<typeof relationshipSchema>;
 
 interface RelationshipModalProps {

@@ -55,7 +55,10 @@ export const clientGroups = pgTable('client_groups', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   startingCustomers: integer('starting_customers').notNull(),
-  churnRate: decimal('churn_rate', { precision: 5, scale: 4 }).notNull(), // percentage as decimal
+  conversionRate: decimal('conversion_rate', { precision: 5, scale: 4 })
+    .notNull()
+    .default('0'), // new customer acquisition rate (percentage as decimal)
+  churnRate: decimal('churn_rate', { precision: 5, scale: 4 }).notNull(), // customer loss rate (percentage as decimal)
   type: clientGroupTypeEnum('type').notNull(), // B2B, B2C, DTC
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

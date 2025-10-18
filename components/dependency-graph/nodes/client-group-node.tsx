@@ -7,6 +7,7 @@ interface ClientGroupNodeData {
   id: number;
   name: string;
   startingCustomers: number;
+  conversionRate: string;
   churnRate: string;
   type: 'B2B' | 'B2C' | 'DTC';
 }
@@ -31,7 +32,11 @@ export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
           {data.name}
         </div>
         <div className="text-[10px] text-purple-800">
-          {data.startingCustomers}
+          {data.startingCustomers} cust
+        </div>
+        <div className="text-[9px] text-purple-700">
+          +{(Number(data.conversionRate) * 100).toFixed(0)}% |{' '}
+          {(Number(data.churnRate) * 100).toFixed(0)}%
         </div>
       </div>
 

@@ -19,6 +19,7 @@ export class ClientGroupRepository {
     name: string;
     type: 'B2B' | 'B2C' | 'DTC';
     startingCustomers: number;
+    conversionRate: string;
     churnRate: string;
   }) {
     const result = await db.insert(clientGroups).values(data).returning();
@@ -31,6 +32,7 @@ export class ClientGroupRepository {
       name: string;
       type: 'B2B' | 'B2C' | 'DTC';
       startingCustomers: number;
+      conversionRate: string;
       churnRate: string;
     }>
   ) {
