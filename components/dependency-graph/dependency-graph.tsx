@@ -33,7 +33,10 @@ import {
   deleteRelationship,
 } from '@/lib/actions/unified-relationship-actions';
 
-// Define nodeTypes and edgeTypes outside the component to prevent recreating them on every render
+// ============================================================================
+// Constants
+// ============================================================================
+
 const NODE_TYPES = {
   stream: StreamNode,
   product: ProductNode,
@@ -45,90 +48,214 @@ const EDGE_TYPES = {
   relationship: RelationshipEdge,
 } as const;
 
-// Client Group Type ID mapping (since we use string IDs like 'B2B' but DB expects numbers)
+// Z-index hierarchy for layering (circles < edges < diamonds)
+const Z_INDEX = {
+  CIRCLE: 1, // Background layer for circle containers
+  EDGE: 5, // Middle layer for relationship arrows
+  DIAMOND: 10, // Foreground layer for diamond nodes
+} as const;
+
+// Layout configuration
+const LAYOUT_CONFIG = {
+  DEFAULT_CIRCLE_SIZE: 350,
+  SMALL_CELL_SIZE: 120,
+  LARGE_CELL_SIZE: 140,
+  SMALL_PADDING: 100,
+  LARGE_PADDING: 150,
+  LARGE_CHILD_THRESHOLD: 2,
+  DIAMOND_SIZE: 100,
+  CIRCLE_SPACING_BUFFER: 150,
+  START_X: 200,
+  START_Y: 200,
+  HORIZONTAL_COLUMN_MULTIPLIER: 2,
+} as const;
+
+// Timing configuration
+const TIMING = {
+  LAYOUT_SAVE_DEBOUNCE_MS: 300,
+} as const;
+
+// Storage keys
+const STORAGE_KEYS = {
+  LAYOUT: 'dependency-graph-layout',
+} as const;
+
+// Client Group Type ID mapping (UI uses strings, DB uses numbers)
 const CLIENT_GROUP_TYPE_IDS = {
   B2B: 1,
   B2C: 2,
   DTC: 3,
 } as const;
 
-// Reverse mapping from numeric ID to string ID
 const CLIENT_GROUP_TYPE_ID_TO_STRING: Record<number, string> = {
   1: 'B2B',
   2: 'B2C',
   3: 'DTC',
 };
 
-// Calculate circle size based on number of children
-const calculateCircleSize = (childCount: number): number => {
-  if (childCount === 0) return 350; // Default size
+// Hardcoded client group types
+const CLIENT_GROUP_TYPES = [
+  {
+    id: 'B2B' as const,
+    name: 'Business to Business',
+    type: 'B2B' as const,
+    description: 'Companies selling to other companies',
+  },
+  {
+    id: 'B2C' as const,
+    name: 'Business to Consumer',
+    type: 'B2C' as const,
+    description: 'Companies selling directly to consumers',
+  },
+  {
+    id: 'DTC' as const,
+    name: 'Direct to Consumer',
+    type: 'DTC' as const,
+    description: 'Brands selling directly to end customers',
+  },
+] as const;
 
-  // Calculate grid dimensions needed
+// Valid connection patterns
+const VALID_CONNECTIONS = [
+  { source: 'product', target: 'clientgroup' },
+  { source: 'clientgroup', target: 'product' },
+  { source: 'clientgroup', target: 'stream' },
+  { source: 'product', target: 'product' },
+  { source: 'product', target: 'clientgrouptype' },
+  { source: 'clientgrouptype', target: 'product' },
+] as const;
+
+// ============================================================================
+// Types
+// ============================================================================
+
+type NodeType = 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
+
+type ConnectionData = {
+  source: string;
+  target: string;
+  sourceType: NodeType;
+  targetType: NodeType;
+};
+
+type RelationshipData = {
+  type: 'first_purchase' | 'existing_relationship' | 'upselling';
+  weight: string;
+  probability?: string;
+  afterMonths?: string;
+};
+
+type StreamData = {
+  id: number;
+  name: string;
+  type: string;
+  description?: string | null;
+};
+
+type ProductData = {
+  id: number;
+  name: string;
+  unitCost: string;
+  productStreamId: number;
+  weight?: string | null;
+};
+
+type ClientGroupData = {
+  id: number;
+  name: string;
+  type: 'B2B' | 'B2C' | 'DTC';
+  startingCustomers: number;
+  churnRate: string;
+};
+
+// ============================================================================
+// Layout Utilities
+// ============================================================================
+
+/**
+ * Calculates the optimal circle size based on the number of child nodes it contains.
+ * Circles grow dynamically to accommodate more children with appropriate spacing.
+ */
+function calculateCircleSize(childCount: number): number {
+  if (childCount === 0) return LAYOUT_CONFIG.DEFAULT_CIRCLE_SIZE;
+
   const cols = Math.ceil(Math.sqrt(childCount));
   const rows = Math.ceil(childCount / cols);
 
-  // Each diamond needs ~120px space, plus extra padding for more children
-  let basePadding = 100;
-  let cellSize = 120;
-
-  // Increase padding and cell size for more than 2 children
-  if (childCount >= 2) {
-    basePadding = 150; // More generous padding
-    cellSize = 140; // More space between diamonds
-  }
+  // Use larger spacing for circles with many children
+  const isLargeGrid = childCount >= LAYOUT_CONFIG.LARGE_CHILD_THRESHOLD;
+  const cellSize = isLargeGrid
+    ? LAYOUT_CONFIG.LARGE_CELL_SIZE
+    : LAYOUT_CONFIG.SMALL_CELL_SIZE;
+  const basePadding = isLargeGrid
+    ? LAYOUT_CONFIG.LARGE_PADDING
+    : LAYOUT_CONFIG.SMALL_PADDING;
 
   const gridWidth = cols * cellSize + basePadding;
   const gridHeight = rows * cellSize + basePadding;
 
-  // Circle diameter should fit the grid
-  const requiredSize = Math.max(gridWidth, gridHeight, 350);
+  return Math.max(gridWidth, gridHeight, LAYOUT_CONFIG.DEFAULT_CIRCLE_SIZE);
+}
 
-  return requiredSize;
-};
-
-// Create grid positions for children inside a circle
-const createGridLayout = (
+/**
+ * Creates a grid layout of positions for child nodes inside a circle.
+ * Children are arranged in a square grid pattern, centered within the circle.
+ */
+function createGridLayout(
   childCount: number,
   circleSize: number
-): { x: number; y: number }[] => {
+): { x: number; y: number }[] {
   if (childCount === 0) return [];
 
   const cols = Math.ceil(Math.sqrt(childCount));
   const rows = Math.ceil(childCount / cols);
 
-  const positions: { x: number; y: number }[] = [];
+  const isLargeGrid = childCount > LAYOUT_CONFIG.LARGE_CHILD_THRESHOLD;
+  const cellWidth = isLargeGrid
+    ? LAYOUT_CONFIG.LARGE_CELL_SIZE
+    : LAYOUT_CONFIG.SMALL_CELL_SIZE;
+  const cellHeight = isLargeGrid
+    ? LAYOUT_CONFIG.LARGE_CELL_SIZE
+    : LAYOUT_CONFIG.SMALL_CELL_SIZE;
 
-  // Use same cell size logic as calculateCircleSize
-  let cellWidth = 120;
-  let cellHeight = 120;
-
-  if (childCount > 2) {
-    cellWidth = 140;
-    cellHeight = 140;
-  }
-
-  // Center the grid within the circle
   const gridWidth = cols * cellWidth;
   const gridHeight = rows * cellHeight;
 
+  // Center the grid within the circle
   const startX = (circleSize - gridWidth) / 2;
   const startY = (circleSize - gridHeight) / 2;
+
+  const positions: { x: number; y: number }[] = [];
 
   for (let i = 0; i < childCount; i++) {
     const col = i % cols;
     const row = Math.floor(i / cols);
 
     positions.push({
-      x: startX + col * cellWidth + cellWidth / 2 - 50, // Center the 100px diamond
-      y: startY + row * cellHeight + cellHeight / 2 - 50,
+      x:
+        startX +
+        col * cellWidth +
+        cellWidth / 2 -
+        LAYOUT_CONFIG.DIAMOND_SIZE / 2,
+      y:
+        startY +
+        row * cellHeight +
+        cellHeight / 2 -
+        LAYOUT_CONFIG.DIAMOND_SIZE / 2,
     });
   }
 
   return positions;
-};
+}
 
-// Save node positions to localStorage
-const saveLayoutToStorage = (nodes: Node[]) => {
+// ============================================================================
+// Storage Utilities
+// ============================================================================
+
+/**
+ * Saves node positions to localStorage for persistence across sessions.
+ */
+function saveLayoutToStorage(nodes: Node[]): void {
   try {
     const positions = nodes.reduce(
       (acc, node) => {
@@ -138,52 +265,188 @@ const saveLayoutToStorage = (nodes: Node[]) => {
       {} as Record<string, { x: number; y: number }>
     );
 
-    localStorage.setItem('dependency-graph-layout', JSON.stringify(positions));
+    localStorage.setItem(
+      STORAGE_KEYS.LAYOUT,
+      JSON.stringify(positions)
+    );
   } catch (error) {
     console.warn('Failed to save layout to localStorage:', error);
   }
-};
+}
 
-// Load node positions from localStorage
-const loadLayoutFromStorage = (): Record<
+/**
+ * Loads saved node positions from localStorage.
+ */
+function loadLayoutFromStorage(): Record<
   string,
   { x: number; y: number }
-> | null => {
+> | null {
   try {
-    const stored = localStorage.getItem('dependency-graph-layout');
+    const stored = localStorage.getItem(STORAGE_KEYS.LAYOUT);
     return stored ? JSON.parse(stored) : null;
   } catch (error) {
     console.warn('Failed to load layout from localStorage:', error);
     return null;
   }
-};
+}
 
-const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-  // Filter edges to only include those between existing nodes
+// ============================================================================
+// Node Creation Helpers
+// ============================================================================
+
+/**
+ * Creates stream (revenue stream) nodes from data.
+ */
+function createStreamNodes(streams: StreamData[]): Node[] {
+  return streams.map((stream) => ({
+    id: `stream-${stream.id}`,
+    type: 'stream' as const,
+    position: { x: 0, y: 0 },
+    zIndex: Z_INDEX.CIRCLE,
+    data: {
+      id: stream.id,
+      name: stream.name,
+      type: stream.type,
+      description: stream.description,
+    },
+  }));
+}
+
+/**
+ * Creates product nodes from data.
+ */
+function createProductNodes(products: ProductData[]): Node[] {
+  return products.map((product) => ({
+    id: `product-${product.id}`,
+    type: 'product' as const,
+    position: { x: 0, y: 0 },
+    zIndex: Z_INDEX.DIAMOND,
+    data: {
+      id: product.id,
+      name: product.name,
+      unitCost: product.unitCost,
+      productStreamId: product.productStreamId,
+      weight: product.weight,
+    },
+  }));
+}
+
+/**
+ * Creates client group type nodes (B2B, B2C, DTC).
+ */
+function createClientGroupTypeNodes(): Node[] {
+  return CLIENT_GROUP_TYPES.map((groupType) => ({
+    id: `clientgrouptype-${groupType.id}`,
+    type: 'clientGroupType' as const,
+    position: { x: 0, y: 0 },
+    zIndex: Z_INDEX.CIRCLE,
+    data: {
+      id: groupType.id,
+      name: groupType.name,
+      type: groupType.type,
+      description: groupType.description,
+    },
+  }));
+}
+
+/**
+ * Creates client group nodes from data.
+ */
+function createClientGroupNodes(clientGroups: ClientGroupData[]): Node[] {
+  return clientGroups.map((group) => ({
+    id: `clientgroup-${group.id}`,
+    type: 'clientGroup' as const,
+    position: { x: 0, y: 0 },
+    zIndex: Z_INDEX.DIAMOND,
+    data: {
+      id: group.id,
+      name: group.name,
+      type: group.type,
+      startingCustomers: group.startingCustomers,
+      churnRate: group.churnRate,
+    },
+  }));
+}
+
+// ============================================================================
+// Type Conversion Utilities
+// ============================================================================
+
+/**
+ * Converts database node type to node ID format (e.g., 'clientGroup' -> 'clientgroup').
+ */
+function normalizeNodeType(type: string): string {
+  return type === 'clientGroup'
+    ? 'clientgroup'
+    : type === 'clientGroupType'
+      ? 'clientgrouptype'
+      : type;
+}
+
+/**
+ * Converts node ID format to component type format (e.g., 'clientgroup' -> 'clientGroup').
+ */
+function denormalizeNodeType(type: string): NodeType {
+  return type === 'clientgroup'
+    ? 'clientGroup'
+    : type === 'clientgrouptype'
+      ? 'clientGroupType'
+      : (type as NodeType);
+}
+
+/**
+ * Converts database ID to node ID (handles client group type string IDs).
+ */
+function createNodeId(
+  nodeType: string,
+  id: number | string,
+  isClientGroupType: boolean
+): string {
+  const normalizedType = normalizeNodeType(nodeType);
+
+  if (isClientGroupType) {
+    const stringId = CLIENT_GROUP_TYPE_ID_TO_STRING[id as number];
+    return `${normalizedType}-${stringId}`;
+  }
+
+  return `${normalizedType}-${id}`;
+}
+
+// ============================================================================
+// Layout Algorithm
+// ============================================================================
+
+/**
+ * Applies layout to nodes and edges.
+ * First tries to load saved layout from localStorage, otherwise applies default grid layout.
+ */
+function getLayoutedElements(
+  nodes: Node[],
+  edges: Edge[]
+): Promise<{ nodes: Node[]; edges: Edge[] }> {
+  // Filter out edges with missing nodes
   const nodeIds = new Set(nodes.map((node) => node.id));
   const validEdges = edges.filter((edge) => {
     const hasSource = nodeIds.has(edge.source);
     const hasTarget = nodeIds.has(edge.target);
+
     if (!hasSource || !hasTarget) {
       console.warn(
         `Filtering out edge ${edge.id}: source=${edge.source} (exists: ${hasSource}), target=${edge.target} (exists: ${hasTarget})`
       );
     }
+
     return hasSource && hasTarget;
   });
 
-  // Try to load saved positions first
+  // Try to load saved positions
   const savedPositions = loadLayoutFromStorage();
 
   if (savedPositions) {
-    // Use saved positions if available
-    const layoutedNodes = nodes.map((node) => {
-      const savedPosition = savedPositions[node.id];
-      return {
-        ...node,
-        position: savedPosition || node.position || { x: 0, y: 0 },
-      };
-    });
+    const layoutedNodes = nodes.map((node) => ({
+      ...node,
+      position: savedPositions[node.id] || node.position || { x: 0, y: 0 },
+    }));
 
     return Promise.resolve({
       nodes: layoutedNodes,
@@ -191,7 +454,18 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     });
   }
 
-  // Default structured layout with parent-child relationships
+  // Apply default layout
+  return applyDefaultLayout(nodes, validEdges);
+}
+
+/**
+ * Applies the default grid layout to nodes.
+ * Circles are positioned in columns, diamonds are positioned inside their parent circles.
+ */
+function applyDefaultLayout(
+  nodes: Node[],
+  edges: Edge[]
+): Promise<{ nodes: Node[]; edges: Edge[] }> {
   // Separate nodes by type
   const parentStreamNodes = nodes.filter((node) => node.type === 'stream');
   const childProductNodes = nodes.filter((node) => node.type === 'product');
@@ -202,58 +476,134 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     (node) => node.type === 'clientGroup'
   );
 
+  // Group children by their parents
+  const clientGroupsByType = groupClientGroupsByType(childClientGroupNodes);
+  const productsByStream = groupProductsByStream(childProductNodes);
+
+  // Calculate maximum circle size for spacing
+  const maxCircleSize = calculateMaxCircleSize(
+    parentClientGroupTypeNodes,
+    parentStreamNodes,
+    clientGroupsByType,
+    productsByStream
+  );
+
+  // Calculate spacing
+  const horizontalSpacing =
+    maxCircleSize + LAYOUT_CONFIG.CIRCLE_SPACING_BUFFER;
+  const verticalSpacing = maxCircleSize + LAYOUT_CONFIG.CIRCLE_SPACING_BUFFER;
+
   const layoutedNodes: Node[] = [];
 
-  // Group child client groups by their parent type
-  const clientGroupsByType: Record<string, typeof childClientGroupNodes> = {
-    B2B: [],
-    B2C: [],
-    DTC: [],
-  };
+  // Position parent circles
+  positionParentCircles(
+    parentClientGroupTypeNodes,
+    clientGroupsByType,
+    layoutedNodes,
+    LAYOUT_CONFIG.START_X,
+    LAYOUT_CONFIG.START_Y,
+    verticalSpacing
+  );
 
-  childClientGroupNodes.forEach((node) => {
+  positionParentCircles(
+    parentStreamNodes,
+    productsByStream,
+    layoutedNodes,
+    LAYOUT_CONFIG.START_X +
+      horizontalSpacing * LAYOUT_CONFIG.HORIZONTAL_COLUMN_MULTIPLIER,
+    LAYOUT_CONFIG.START_Y,
+    verticalSpacing
+  );
+
+  // Position children inside parents
+  positionChildrenInParents(
+    clientGroupsByType,
+    layoutedNodes,
+    'clientGroupType'
+  );
+  positionChildrenInParents(productsByStream, layoutedNodes, 'stream');
+
+  return Promise.resolve({
+    nodes: layoutedNodes,
+    edges,
+  });
+}
+
+/**
+ * Groups client group nodes by their type (B2B, B2C, DTC).
+ */
+function groupClientGroupsByType(
+  clientGroups: Node[]
+): Record<string, Node[]> {
+  const groups: Record<string, Node[]> = { B2B: [], B2C: [], DTC: [] };
+
+  clientGroups.forEach((node) => {
     const type = node.data.type as 'B2B' | 'B2C' | 'DTC';
-    if (clientGroupsByType[type]) {
-      clientGroupsByType[type].push(node);
+    if (groups[type]) {
+      groups[type].push(node);
     }
   });
 
-  // Group child products by their parent stream
-  const productsByStream: Record<number, typeof childProductNodes> = {};
+  return groups;
+}
 
-  childProductNodes.forEach((node) => {
+/**
+ * Groups product nodes by their parent stream ID.
+ */
+function groupProductsByStream(products: Node[]): Record<number, Node[]> {
+  const groups: Record<number, Node[]> = {};
+
+  products.forEach((node) => {
     const streamId = node.data.productStreamId;
-    if (!productsByStream[streamId]) {
-      productsByStream[streamId] = [];
+    if (!groups[streamId]) {
+      groups[streamId] = [];
     }
-    productsByStream[streamId].push(node);
+    groups[streamId].push(node);
   });
 
-  // Calculate spacing based on max circle size
-  let maxCircleSize = 350;
+  return groups;
+}
+
+/**
+ * Calculates the maximum circle size needed for layout spacing.
+ */
+function calculateMaxCircleSize(
+  parentClientGroupTypeNodes: Node[],
+  parentStreamNodes: Node[],
+  clientGroupsByType: Record<string, Node[]>,
+  productsByStream: Record<number, Node[]>
+): number {
+  let maxSize: number = LAYOUT_CONFIG.DEFAULT_CIRCLE_SIZE;
+
   parentClientGroupTypeNodes.forEach((node) => {
-    const type = node.data.type as 'B2B' | 'B2C' | 'DTC';
+    const type = node.data.type as string;
     const childCount = clientGroupsByType[type]?.length || 0;
-    const size = calculateCircleSize(childCount);
-    maxCircleSize = Math.max(maxCircleSize, size);
+    maxSize = Math.max(maxSize, calculateCircleSize(childCount));
   });
+
   parentStreamNodes.forEach((node) => {
     const streamId = node.data.id;
     const childCount = productsByStream[streamId]?.length || 0;
-    const size = calculateCircleSize(childCount);
-    maxCircleSize = Math.max(maxCircleSize, size);
+    maxSize = Math.max(maxSize, calculateCircleSize(childCount));
   });
 
-  // Layout parameters with dynamic spacing
-  const horizontalSpacing = maxCircleSize + 150;
-  const verticalSpacing = maxCircleSize + 150;
-  const startX = 200;
-  const startY = 200;
+  return maxSize;
+}
 
-  // Position client group type parent circles on left
-  parentClientGroupTypeNodes.forEach((node, index) => {
-    const type = node.data.type as 'B2B' | 'B2C' | 'DTC';
-    const childCount = clientGroupsByType[type]?.length || 0;
+/**
+ * Positions parent circle nodes in a vertical column.
+ */
+function positionParentCircles(
+  parentNodes: Node[],
+  childrenMap: Record<string | number, Node[]>,
+  layoutedNodes: Node[],
+  startX: number,
+  startY: number,
+  verticalSpacing: number
+): void {
+  parentNodes.forEach((node, index) => {
+    const key = node.type === 'stream' ? node.data.id : node.data.type;
+    const childCount = childrenMap[key]?.length || 0;
     const circleSize = calculateCircleSize(childCount);
 
     layoutedNodes.push({
@@ -268,124 +618,53 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
       },
     });
   });
+}
 
-  // Position revenue stream parent circles on right
-  parentStreamNodes.forEach((node, index) => {
-    const streamId = node.data.id;
-    const childCount = productsByStream[streamId]?.length || 0;
-    const circleSize = calculateCircleSize(childCount);
-
-    layoutedNodes.push({
-      ...node,
-      position: {
-        x: startX + horizontalSpacing * 2,
-        y: startY + index * verticalSpacing,
-      },
-      data: {
-        ...node.data,
-        circleSize,
-      },
+/**
+ * Positions child nodes inside their parent circles using a grid layout.
+ */
+function positionChildrenInParents(
+  childrenMap: Record<string | number, Node[]>,
+  layoutedNodes: Node[],
+  parentType: 'clientGroupType' | 'stream'
+): void {
+  Object.entries(childrenMap).forEach(([key, children]) => {
+    const parentNode = layoutedNodes.find((n) => {
+      if (parentType === 'clientGroupType') {
+        return n.type === 'clientGroupType' && n.data.type === key;
+      } else {
+        return n.type === 'stream' && n.data.id === parseInt(key);
+      }
     });
-  });
 
-  // Position child client groups INSIDE their parent circles with grid layout
-  Object.entries(clientGroupsByType).forEach(([type, children]) => {
-    const parentNode = layoutedNodes.find(
-      (n) => n.type === 'clientGroupType' && n.data.type === type
-    );
     if (parentNode && children.length > 0) {
       const circleSize = parentNode.data.circleSize as number;
       const gridPositions = createGridLayout(children.length, circleSize);
 
       children.forEach((child, index) => {
-        const gridPos = gridPositions[index];
         layoutedNodes.push({
           ...child,
-          position: gridPos,
+          position: gridPositions[index],
           parentNode: parentNode.id,
           extent: 'parent',
         });
       });
     }
   });
+}
 
-  // Position child products INSIDE their parent circles with grid layout
-  Object.entries(productsByStream).forEach(([streamId, children]) => {
-    const parentNode = layoutedNodes.find(
-      (n) => n.type === 'stream' && n.data.id === parseInt(streamId)
-    );
-    if (parentNode && children.length > 0) {
-      const circleSize = parentNode.data.circleSize as number;
-      const gridPositions = createGridLayout(children.length, circleSize);
-
-      children.forEach((child, index) => {
-        const gridPos = gridPositions[index];
-        layoutedNodes.push({
-          ...child,
-          position: gridPos,
-          parentNode: parentNode.id,
-          extent: 'parent',
-        });
-      });
-    }
-  });
-
-  return Promise.resolve({
-    nodes: layoutedNodes,
-    edges: validEdges,
-  });
-};
+// ============================================================================
+// Main Component
+// ============================================================================
 
 function DependencyGraphInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-
-  // Custom nodes change handler that auto-saves layout
-  const handleNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      onNodesChange(changes);
-
-      // Check if any changes involve position updates
-      const hasPositionChanges = changes.some(
-        (change) => change.type === 'position'
-      );
-
-      if (hasPositionChanges) {
-        // Save layout after a short delay to debounce saves during dragging
-        setTimeout(() => {
-          setNodes((currentNodes) => {
-            saveLayoutToStorage(currentNodes);
-            return currentNodes;
-          });
-        }, 300);
-      }
-    },
-    [onNodesChange, setNodes]
-  );
-
-  // Reset layout to default and clear saved positions
-  const resetLayout = useCallback(async () => {
-    try {
-      localStorage.removeItem('dependency-graph-layout');
-
-      // Reapply default layout
-      const layouted = await getLayoutedElements(nodes, edges);
-      if (layouted) {
-        setNodes(layouted.nodes);
-      }
-    } catch (error) {
-      console.error('Failed to reset layout:', error);
-    }
-  }, [nodes, edges, setNodes]);
-
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [connectionData, setConnectionData] = useState<{
-    source: string;
-    target: string;
-    sourceType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
-    targetType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
-  } | null>(null);
+  const [connectionData, setConnectionData] = useState<ConnectionData | null>(
+    null
+  );
   const [editingRelationship, setEditingRelationship] = useState<{
     id: string;
     data: {
@@ -395,232 +674,248 @@ function DependencyGraphInner() {
     };
   } | null>(null);
 
+  // ============================================================================
+  // Layout Management
+  // ============================================================================
+
+  /**
+   * Handles node changes and auto-saves layout when nodes are moved.
+   */
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      onNodesChange(changes);
+
+      const hasPositionChanges = changes.some(
+        (change) => change.type === 'position'
+      );
+
+      if (hasPositionChanges) {
+        setTimeout(() => {
+          setNodes((currentNodes) => {
+            saveLayoutToStorage(currentNodes);
+            return currentNodes;
+          });
+        }, TIMING.LAYOUT_SAVE_DEBOUNCE_MS);
+      }
+    },
+    [onNodesChange, setNodes]
+  );
+
+  /**
+   * Resets layout to default and clears saved positions.
+   */
+  const resetLayout = useCallback(async () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.LAYOUT);
+
+      const layouted = await getLayoutedElements(nodes, edges);
+      if (layouted) {
+        setNodes(layouted.nodes);
+      }
+    } catch (error) {
+      console.error('Failed to reset layout:', error);
+    }
+  }, [nodes, edges, setNodes]);
+
+  // ============================================================================
+  // Connection Validation
+  // ============================================================================
+
+  /**
+   * Validates whether a connection between two nodes is allowed.
+   */
   const isValidConnection = useCallback((connection: Connection) => {
     if (!connection.source || !connection.target) return false;
 
     const sourceType = connection.source.split('-')[0];
     const targetType = connection.target.split('-')[0];
 
-    // Define valid connection patterns
-    // Note: Circles (stream, clientgrouptype) cannot connect to each other
-    // Only diamonds (product, clientgroup) can connect to circles
-    const validConnections = [
-      { source: 'product', target: 'clientgroup' }, // Product can connect to ClientGroup
-      { source: 'clientgroup', target: 'product' }, // ClientGroup can connect to Product
-      { source: 'clientgroup', target: 'stream' }, // ClientGroup can connect to Revenue Stream
-      { source: 'product', target: 'product' }, // Product can convert to Product
-      { source: 'product', target: 'clientgrouptype' }, // Product can connect to ClientGroupType
-      { source: 'clientgrouptype', target: 'product' }, // ClientGroupType can connect to Product
-    ];
-
-    return validConnections.some(
+    return VALID_CONNECTIONS.some(
       (conn) => conn.source === sourceType && conn.target === targetType
     );
   }, []);
 
+  /**
+   * Handles when a user creates a new connection.
+   */
   const onConnect = useCallback(
     (params: Connection) => {
-      console.log('onConnect called:', params);
-      console.log('isValidConnection result:', isValidConnection(params));
-
       if (params.source && params.target && isValidConnection(params)) {
         const rawSourceType = params.source.split('-')[0];
         const rawTargetType = params.target.split('-')[0];
 
-        console.log('Valid connection! Opening modal...');
-
-        const sourceType:
-          | 'stream'
-          | 'product'
-          | 'clientGroup'
-          | 'clientGroupType' =
-          rawSourceType === 'clientgroup'
-            ? 'clientGroup'
-            : rawSourceType === 'clientgrouptype'
-              ? 'clientGroupType'
-              : (rawSourceType as
-                  | 'stream'
-                  | 'product'
-                  | 'clientGroup'
-                  | 'clientGroupType');
-        const targetType:
-          | 'stream'
-          | 'product'
-          | 'clientGroup'
-          | 'clientGroupType' =
-          rawTargetType === 'clientgroup'
-            ? 'clientGroup'
-            : rawTargetType === 'clientgrouptype'
-              ? 'clientGroupType'
-              : (rawTargetType as
-                  | 'stream'
-                  | 'product'
-                  | 'clientGroup'
-                  | 'clientGroupType');
-
         setConnectionData({
           source: params.source,
           target: params.target,
-          sourceType,
-          targetType,
+          sourceType: denormalizeNodeType(rawSourceType),
+          targetType: denormalizeNodeType(rawTargetType),
         });
         setModalOpen(true);
-      } else {
-        console.log('Invalid connection - modal not opened');
       }
     },
     [isValidConnection]
   );
 
-  const handleSaveRelationship = useCallback(
-    async (relationshipData: {
-      type: 'first_purchase' | 'existing_relationship' | 'upselling';
-      weight: string;
-      probability?: string;
-      afterMonths?: string;
-    }) => {
-      if (connectionData) {
+  // ============================================================================
+  // Relationship Management
+  // ============================================================================
+
+  /**
+   * Creates edge data object for a relationship.
+   */
+  const createRelationshipEdgeData = useCallback(
+    (
+      relationshipData: RelationshipData,
+      relationshipId: number,
+      sourceId: string,
+      targetId: string,
+      sourceType: NodeType,
+      targetType: NodeType
+    ) => ({
+      relationship: relationshipData.type,
+      properties: relationshipData,
+      relationshipId,
+      onEdit: (
+        edgeId: string,
+        edgeData: {
+          relationship: string;
+          properties: Record<string, string | number>;
+        }
+      ) => {
+        setEditingRelationship({
+          id: edgeId,
+          data: { ...edgeData, relationshipId },
+        });
+        setConnectionData({
+          source: sourceId,
+          target: targetId,
+          sourceType,
+          targetType,
+        });
+        setModalOpen(true);
+      },
+      onDelete: async (edgeId: string) => {
         try {
-          // Parse source and target IDs
-          const sourceIdParts = connectionData.source.split('-');
-          const targetIdParts = connectionData.target.split('-');
+          const id = parseInt(edgeId.split('-')[1]);
 
-          const finalSourceType = connectionData.sourceType;
-          let finalSourceId: number | string;
-          const finalTargetType = connectionData.targetType;
-          let finalTargetId: number | string;
-
-          // Handle clientGroupType ID mapping (string to number)
-          if (connectionData.sourceType === 'clientGroupType') {
-            const stringId =
-              sourceIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
-            finalSourceId = CLIENT_GROUP_TYPE_IDS[stringId];
-          } else {
-            finalSourceId = parseInt(sourceIdParts[1]);
+          if (isNaN(id)) {
+            console.error('Invalid relationship ID in edge:', edgeId);
+            return;
           }
 
-          if (connectionData.targetType === 'clientGroupType') {
-            const stringId =
-              targetIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS;
-            finalTargetId = CLIENT_GROUP_TYPE_IDS[stringId];
+          const result = await deleteRelationship(id);
+
+          if (result.success) {
+            setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
           } else {
-            finalTargetId = parseInt(targetIdParts[1]);
+            console.error('Failed to delete relationship:', result.error);
           }
+        } catch (error) {
+          console.error('Error deleting relationship:', error);
+        }
+      },
+    }),
+    [setEdges]
+  );
 
-          let result: {
-            success: boolean;
-            error?: string;
-            data?: { id: number };
-          };
+  /**
+   * Handles saving a relationship (create or update).
+   */
+  const handleSaveRelationship = useCallback(
+    async (relationshipData: RelationshipData) => {
+      if (!connectionData) return;
 
-          if (editingRelationship && editingRelationship.data?.relationshipId) {
-            // Update existing relationship
-            result = await updateRelationship(
+      try {
+        const sourceIdParts = connectionData.source.split('-');
+        const targetIdParts = connectionData.target.split('-');
+
+        // Convert IDs (handle client group type string IDs)
+        const finalSourceId =
+          connectionData.sourceType === 'clientGroupType'
+            ? CLIENT_GROUP_TYPE_IDS[
+                sourceIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS
+              ]
+            : parseInt(sourceIdParts[1]);
+
+        const finalTargetId =
+          connectionData.targetType === 'clientGroupType'
+            ? CLIENT_GROUP_TYPE_IDS[
+                targetIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS
+              ]
+            : parseInt(targetIdParts[1]);
+
+        // Create or update relationship
+        const result = editingRelationship?.data?.relationshipId
+          ? await updateRelationship(
               editingRelationship.data.relationshipId,
               relationshipData
-            );
-          } else {
-            // Create new relationship
-            result = await createRelationship({
-              sourceType: finalSourceType,
+            )
+          : await createRelationship({
+              sourceType: connectionData.sourceType,
               sourceId: finalSourceId,
-              targetType: finalTargetType,
+              targetType: connectionData.targetType,
               targetId: finalTargetId,
               relationshipType: relationshipData.type,
               properties: relationshipData,
             });
-          }
 
-          if (result.success) {
-            if (editingRelationship) {
-              // Update existing edge
-              setEdges((eds) =>
-                eds.map((edge) =>
-                  edge.id === editingRelationship.id
-                    ? {
-                        ...edge,
-                        data: {
-                          ...edge.data,
-                          relationship: relationshipData.type,
-                          properties: relationshipData,
-                        },
-                      }
-                    : edge
-                )
-              );
-            } else {
-              // Create new edge with the relationship ID from the server response
-              if (result.data) {
-                // No specific handles needed - connections use default handles
-
-                const newEdge: Edge = {
-                  id: `relationship-${result.data.id}`,
-                  source: connectionData.source,
-                  target: connectionData.target,
-                  type: 'relationship',
-                  data: {
-                    relationship: relationshipData.type,
-                    properties: relationshipData,
-                    relationshipId: result.data.id,
-                    onEdit: (
-                      edgeId: string,
-                      edgeData: {
-                        relationship: string;
-                        properties: Record<string, string | number>;
-                      }
-                    ) => {
-                      setEditingRelationship({
-                        id: edgeId,
-                        data: { ...edgeData, relationshipId: result.data?.id },
-                      });
-                      setConnectionData({
-                        source: connectionData.source,
-                        target: connectionData.target,
-                        sourceType: connectionData.sourceType,
-                        targetType: connectionData.targetType,
-                      });
-                      setModalOpen(true);
-                    },
-                    onDelete: async (edgeId: string) => {
-                      try {
-                        const relationshipId = parseInt(edgeId.split('-')[1]);
-                        const deleteResult =
-                          await deleteRelationship(relationshipId);
-
-                        if (deleteResult.success) {
-                          setEdges((eds) =>
-                            eds.filter((edge) => edge.id !== edgeId)
-                          );
-                        } else {
-                          console.error(
-                            'Failed to delete relationship:',
-                            deleteResult.error
-                          );
-                        }
-                      } catch (error) {
-                        console.error('Error deleting relationship:', error);
-                      }
-                    },
-                  },
-                };
-
-                setEdges((eds) => addEdge(newEdge, eds));
-              }
-            }
-            setConnectionData(null);
-            setEditingRelationship(null);
-          } else {
-            console.error('Failed to save relationship:', result.error);
-          }
-        } catch (error) {
-          console.error('Error saving relationship:', error);
+        if (!result.success) {
+          console.error('Failed to save relationship:', result.error);
+          return;
         }
+
+        // Update UI
+        if (editingRelationship) {
+          setEdges((eds) =>
+            eds.map((edge) =>
+              edge.id === editingRelationship.id
+                ? {
+                    ...edge,
+                    data: {
+                      ...edge.data,
+                      relationship: relationshipData.type,
+                      properties: relationshipData,
+                    },
+                  }
+                : edge
+            )
+          );
+        } else if (result.data) {
+          const newEdge: Edge = {
+            id: `relationship-${result.data.id}`,
+            source: connectionData.source,
+            target: connectionData.target,
+            type: 'relationship',
+            zIndex: Z_INDEX.EDGE,
+            data: createRelationshipEdgeData(
+              relationshipData,
+              result.data.id,
+              connectionData.source,
+              connectionData.target,
+              connectionData.sourceType,
+              connectionData.targetType
+            ),
+          };
+
+          setEdges((eds) => addEdge(newEdge, eds));
+        }
+
+        setConnectionData(null);
+        setEditingRelationship(null);
+      } catch (error) {
+        console.error('Error saving relationship:', error);
       }
     },
-    [connectionData, editingRelationship, setEdges]
+    [connectionData, editingRelationship, setEdges, createRelationshipEdgeData]
   );
 
-  // Load data and create nodes/edges
+  // ============================================================================
+  // Data Loading
+  // ============================================================================
+
+  /**
+   * Loads initial data and creates nodes/edges.
+   */
   useEffect(() => {
     async function loadData() {
       try {
@@ -632,257 +927,56 @@ function DependencyGraphInner() {
             getAllUnifiedRelationships(),
           ]);
 
-        const newNodes: Node[] = [];
-        const newEdges: Edge[] = [];
-
-        // Create nodes without positioning (ELK will handle layout)
-
-        // Revenue Streams
-        streams.forEach((stream) => {
-          newNodes.push({
-            id: `stream-${stream.id}`,
-            type: 'stream',
-            position: { x: 0, y: 0 }, // ELK will set position
-            zIndex: 1, // Lower z-index so circles appear below diamonds and edges
-            data: {
-              id: stream.id,
-              name: stream.name,
-              type: stream.type,
-              description: stream.description,
-            },
-          });
-        });
-
-        // Products
-        products.forEach((product) => {
-          newNodes.push({
-            id: `product-${product.id}`,
-            type: 'product',
-            position: { x: 0, y: 0 },
-            zIndex: 10, // Higher z-index so diamonds appear above circles
-            data: {
-              id: product.id,
-              name: product.name,
-              unitCost: product.unitCost,
-              productStreamId: product.productStreamId,
-              weight: product.weight,
-            },
-          });
-        });
-
-        // Client Group Types - hardcoded B2B, B2C, DTC
-        const clientGroupTypes = [
-          {
-            id: 'B2B',
-            name: 'Business to Business',
-            type: 'B2B' as const,
-            description: 'Companies selling to other companies',
-          },
-          {
-            id: 'B2C',
-            name: 'Business to Consumer',
-            type: 'B2C' as const,
-            description: 'Companies selling directly to consumers',
-          },
-          {
-            id: 'DTC',
-            name: 'Direct to Consumer',
-            type: 'DTC' as const,
-            description: 'Brands selling directly to end customers',
-          },
+        // Create all nodes
+        const newNodes: Node[] = [
+          ...createStreamNodes(streams),
+          ...createProductNodes(products),
+          ...createClientGroupTypeNodes(),
+          ...createClientGroupNodes(clientGroups),
         ];
 
-        clientGroupTypes.forEach((groupType) => {
-          newNodes.push({
-            id: `clientgrouptype-${groupType.id}`,
-            type: 'clientGroupType',
-            position: { x: 0, y: 0 }, // ELK will set position
-            zIndex: 1, // Lower z-index so circles appear below diamonds and edges
-            data: {
-              id: groupType.id,
-              name: groupType.name,
-              type: groupType.type,
-              description: groupType.description,
-            },
-          });
-        });
+        // Create all edges
+        const newEdges: Edge[] = relationships.map((relationship) => {
+          const sourceId = createNodeId(
+            relationship.sourceType,
+            relationship.sourceId,
+            relationship.sourceType === 'clientGroupType'
+          );
+          const targetId = createNodeId(
+            relationship.targetType,
+            relationship.targetId,
+            relationship.targetType === 'clientGroupType'
+          );
 
-        // Client Groups
-        clientGroups.forEach((group) => {
-          newNodes.push({
-            id: `clientgroup-${group.id}`,
-            type: 'clientGroup',
-            position: { x: 0, y: 0 },
-            zIndex: 10, // Higher z-index so diamonds appear above circles
-            data: {
-              id: group.id,
-              name: group.name,
-              type: group.type,
-              startingCustomers: group.startingCustomers,
-              churnRate: group.churnRate,
-            },
-          });
-        });
+          const sourceType = denormalizeNodeType(
+            normalizeNodeType(relationship.sourceType)
+          );
+          const targetType = denormalizeNodeType(
+            normalizeNodeType(relationship.targetType)
+          );
 
-        // Add all relationships from database
-        relationships.forEach((relationship) => {
-          // Convert database sourceType/targetType to match node IDs
-          const sourceNodeType =
-            relationship.sourceType === 'clientGroup'
-              ? 'clientgroup'
-              : relationship.sourceType === 'clientGroupType'
-                ? 'clientgrouptype'
-                : relationship.sourceType;
-          const targetNodeType =
-            relationship.targetType === 'clientGroup'
-              ? 'clientgroup'
-              : relationship.targetType === 'clientGroupType'
-                ? 'clientgrouptype'
-                : relationship.targetType;
-
-          // Handle client group type ID mapping
-          let sourceId: string;
-          let targetId: string;
-
-          if (relationship.sourceType === 'clientGroupType') {
-            const stringId =
-              CLIENT_GROUP_TYPE_ID_TO_STRING[relationship.sourceId];
-            sourceId = `${sourceNodeType}-${stringId}`;
-          } else {
-            sourceId = `${sourceNodeType}-${relationship.sourceId}`;
-          }
-
-          if (relationship.targetType === 'clientGroupType') {
-            const stringId =
-              CLIENT_GROUP_TYPE_ID_TO_STRING[relationship.targetId];
-            targetId = `${targetNodeType}-${stringId}`;
-          } else {
-            targetId = `${targetNodeType}-${relationship.targetId}`;
-          }
-
-          // No specific handles needed
-          newEdges.push({
+          return {
             id: `relationship-${relationship.id}`,
             source: sourceId,
             target: targetId,
             type: 'relationship',
-            data: {
-              relationship: relationship.relationshipType,
-              properties: relationship.properties,
-              relationshipId: relationship.id,
-              onEdit: (
-                edgeId: string,
-                edgeData: {
-                  relationship: string;
-                  properties: Record<string, string | number>;
-                }
-              ) => {
-                // Convert database types to component types for modal
-                const sourceType =
-                  relationship.sourceType === 'clientGroup'
-                    ? 'clientGroup'
-                    : relationship.sourceType === 'clientGroupType'
-                      ? 'clientGroupType'
-                      : (relationship.sourceType as
-                          | 'stream'
-                          | 'product'
-                          | 'clientGroup'
-                          | 'clientGroupType');
-                const targetType =
-                  relationship.targetType === 'clientGroup'
-                    ? 'clientGroup'
-                    : relationship.targetType === 'clientGroupType'
-                      ? 'clientGroupType'
-                      : (relationship.targetType as
-                          | 'stream'
-                          | 'product'
-                          | 'clientGroup'
-                          | 'clientGroupType');
-
-                setEditingRelationship({ id: edgeId, data: edgeData });
-                setConnectionData({
-                  source: sourceId,
-                  target: targetId,
-                  sourceType: sourceType,
-                  targetType: targetType,
-                });
-                setModalOpen(true);
-              },
-              onDelete: async (edgeId: string) => {
-                try {
-                  // Extract relationship ID from edge ID (format: relationship-{id})
-                  const relationshipId = parseInt(edgeId.split('-')[1]);
-
-                  if (isNaN(relationshipId)) {
-                    console.error('Invalid relationship ID in edge:', edgeId);
-                    return;
-                  }
-
-                  const result = await deleteRelationship(relationshipId);
-
-                  if (result.success) {
-                    setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
-                  } else {
-                    console.error(
-                      'Failed to delete relationship:',
-                      result.error
-                    );
-                  }
-                } catch (error) {
-                  console.error('Error deleting relationship:', error);
-                }
-              },
-            },
-          });
+            zIndex: Z_INDEX.EDGE,
+            data: createRelationshipEdgeData(
+              relationship.properties as RelationshipData,
+              relationship.id,
+              sourceId,
+              targetId,
+              sourceType,
+              targetType
+            ),
+          };
         });
 
-        // Debug logging
-        console.log('Total nodes created:', newNodes.length);
-        console.log(
-          'Node IDs:',
-          newNodes.map((n) => n.id)
-        );
-        console.log('Total edges created:', newEdges.length);
-        console.log(
-          'Edge details:',
-          newEdges.map((e) => ({
-            id: e.id,
-            source: e.source,
-            target: e.target,
-          }))
-        );
-
-        // Apply ELK layout
-        try {
-          const layouted = await getLayoutedElements(newNodes, newEdges);
-          if (layouted) {
-            setNodes(layouted.nodes);
-            setEdges(layouted.edges);
-          } else {
-            // Fallback to manual layout if ELK fails
-            console.warn('ELK layout failed, using fallback positioning');
-            const fallbackNodes = newNodes.map((node, index) => ({
-              ...node,
-              position: {
-                x: (index % 4) * 300 + 50,
-                y: Math.floor(index / 4) * 150 + 50,
-              },
-            }));
-            setNodes(fallbackNodes);
-            setEdges(newEdges);
-          }
-        } catch (error) {
-          console.error('Error applying ELK layout:', error);
-          // Fallback to manual layout
-          const fallbackNodes = newNodes.map((node, index) => ({
-            ...node,
-            position: {
-              x: (index % 4) * 300 + 50,
-              y: Math.floor(index / 4) * 150 + 50,
-            },
-          }));
-          setNodes(fallbackNodes);
-          setEdges(newEdges);
+        // Apply layout
+        const layouted = await getLayoutedElements(newNodes, newEdges);
+        if (layouted) {
+          setNodes(layouted.nodes);
+          setEdges(layouted.edges);
         }
       } catch (error) {
         console.error('Failed to load dependency graph data:', error);
@@ -892,166 +986,51 @@ function DependencyGraphInner() {
     }
 
     loadData();
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, createRelationshipEdgeData]);
 
-  // Auto-refresh data when page becomes visible
+  /**
+   * Auto-refreshes data when page becomes visible.
+   */
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && !loading) {
-        // Reload data when page becomes visible
-        async function reloadData() {
-          try {
-            const [streams, products, clientGroups] = await Promise.all([
-              getRevenueStreams(),
-              getProducts(),
-              getClientGroups(),
-            ]);
+      if (document.hidden || loading) return;
 
-            const newNodes: Node[] = [];
-            const existingEdges = edges;
+      async function reloadData() {
+        try {
+          const [streams, products, clientGroups] = await Promise.all([
+            getRevenueStreams(),
+            getProducts(),
+            getClientGroups(),
+          ]);
 
-            // Create nodes for auto-refresh
+          const newNodes: Node[] = [
+            ...createStreamNodes(streams),
+            ...createProductNodes(products),
+            ...createClientGroupTypeNodes(),
+            ...createClientGroupNodes(clientGroups),
+          ];
 
-            // Revenue Streams
-            streams.forEach((stream) => {
-              newNodes.push({
-                id: `stream-${stream.id}`,
-                type: 'stream',
-                position: { x: 0, y: 0 },
-                zIndex: 1, // Lower z-index so circles appear below diamonds and edges
-                data: {
-                  id: stream.id,
-                  name: stream.name,
-                  type: stream.type,
-                  description: stream.description,
-                },
-              });
-            });
-
-            // Products
-            products.forEach((product) => {
-              newNodes.push({
-                id: `product-${product.id}`,
-                type: 'product',
-                position: { x: 0, y: 0 },
-                zIndex: 10, // Higher z-index so diamonds appear above circles
-                data: {
-                  id: product.id,
-                  name: product.name,
-                  unitCost: product.unitCost,
-                  productStreamId: product.productStreamId,
-                  weight: product.weight,
-                },
-              });
-            });
-
-            // Client Group Types - hardcoded B2B, B2C, DTC
-            const clientGroupTypes = [
-              {
-                id: 'B2B',
-                name: 'Business to Business',
-                type: 'B2B' as const,
-                description: 'Companies selling to other companies',
-              },
-              {
-                id: 'B2C',
-                name: 'Business to Consumer',
-                type: 'B2C' as const,
-                description: 'Companies selling directly to consumers',
-              },
-              {
-                id: 'DTC',
-                name: 'Direct to Consumer',
-                type: 'DTC' as const,
-                description: 'Brands selling directly to end customers',
-              },
-            ];
-
-            clientGroupTypes.forEach((groupType) => {
-              newNodes.push({
-                id: `clientgrouptype-${groupType.id}`,
-                type: 'clientGroupType',
-                position: { x: 0, y: 0 }, // ELK will set position
-                zIndex: 1, // Lower z-index so circles appear below diamonds and edges
-                data: {
-                  id: groupType.id,
-                  name: groupType.name,
-                  type: groupType.type,
-                  description: groupType.description,
-                },
-              });
-            });
-
-            // Client Groups
-            clientGroups.forEach((group) => {
-              newNodes.push({
-                id: `clientgroup-${group.id}`,
-                type: 'clientGroup',
-                position: { x: 0, y: 0 },
-                zIndex: 10, // Higher z-index so diamonds appear above circles
-                data: {
-                  id: group.id,
-                  name: group.name,
-                  type: group.type,
-                  startingCustomers: group.startingCustomers,
-                  churnRate: group.churnRate,
-                },
-              });
-            });
-
-            // Apply layout for auto-refresh
-            try {
-              const layouted = await getLayoutedElements(
-                newNodes,
-                existingEdges
-              );
-              if (layouted) {
-                setNodes(layouted.nodes);
-                setEdges(layouted.edges);
-              } else {
-                // Fallback to manual layout if ELK fails
-                console.warn(
-                  'ELK layout failed on auto-refresh, using fallback positioning'
-                );
-                const fallbackNodes = newNodes.map((node, index) => ({
-                  ...node,
-                  position: {
-                    x: (index % 4) * 300 + 50,
-                    y: Math.floor(index / 4) * 150 + 50,
-                  },
-                }));
-                setNodes(fallbackNodes);
-                setEdges(existingEdges);
-              }
-            } catch (error) {
-              console.error(
-                'Error applying ELK layout on auto-refresh:',
-                error
-              );
-              // Fallback to manual layout
-              const fallbackNodes = newNodes.map((node, index) => ({
-                ...node,
-                position: {
-                  x: (index % 4) * 300 + 50,
-                  y: Math.floor(index / 4) * 150 + 50,
-                },
-              }));
-              setNodes(fallbackNodes);
-              setEdges(existingEdges);
-            }
-          } catch (error) {
-            console.error('Failed to reload dependency graph data:', error);
+          const layouted = await getLayoutedElements(newNodes, edges);
+          if (layouted) {
+            setNodes(layouted.nodes);
+            setEdges(layouted.edges);
           }
+        } catch (error) {
+          console.error('Failed to reload dependency graph data:', error);
         }
-
-        reloadData();
       }
+
+      reloadData();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () =>
       document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [edges, loading, setNodes, setEdges]);
+
+  // ============================================================================
+  // Render
+  // ============================================================================
 
   if (loading) {
     return (
@@ -1081,6 +1060,7 @@ function DependencyGraphInner() {
           </button>
         </div>
       </div>
+
       <div className="h-[calc(100%-80px)]">
         <ReactFlow
           nodes={nodes}
