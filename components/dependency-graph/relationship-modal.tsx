@@ -325,11 +325,6 @@ export function RelationshipModal({
 
       form.reset();
       onOpenChange(false);
-
-      // Trigger a page reload to show updated weights
-      if (typeof window !== 'undefined') {
-        window.location.reload();
-      }
     } catch (error) {
       console.error('Failed to save relationship:', error);
     } finally {

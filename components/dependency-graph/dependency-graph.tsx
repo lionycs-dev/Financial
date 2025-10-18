@@ -898,6 +898,40 @@ function DependencyGraphInner() {
 
         setConnectionData(null);
         setEditingRelationship(null);
+
+        // Small delay to allow modal updates to complete, then refresh edge weights
+        setTimeout(async () => {
+          try {
+            const relationships = await getAllUnifiedRelationships();
+
+            // Update all edges with latest weights from database
+            setEdges((currentEdges) =>
+              currentEdges.map((edge) => {
+                const edgeRelId = parseInt(edge.id.split('-')[1]);
+                const updatedRel = relationships.find(
+                  (rel) => rel.id === edgeRelId
+                );
+
+                if (updatedRel && updatedRel.properties.weight) {
+                  return {
+                    ...edge,
+                    data: {
+                      ...edge.data,
+                      properties: {
+                        ...edge.data.properties,
+                        weight: updatedRel.properties.weight,
+                      },
+                    },
+                  };
+                }
+
+                return edge;
+              })
+            );
+          } catch (error) {
+            console.error('Failed to refresh edge weights:', error);
+          }
+        }, 500);
       } catch (error) {
         console.error('Error saving relationship:', error);
       }
