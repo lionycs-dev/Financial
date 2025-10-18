@@ -31,18 +31,37 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         <div className="text-xs text-green-700 italic">{data.type}</div>
       </div>
 
-      {/* Connection handle on left side */}
+      {/* Connection handles - small and positioned with z-index */}
       <Handle
         type="target"
-        id={`stream_target`}
+        id="stream_target"
         position={Position.Left}
-        className="w-4 h-4 bg-green-600 border-2 border-green-800"
-        isValidConnection={(connection) => {
-          const sourceType = connection.source?.split('-')[0];
-          return (
-            sourceType === 'clientgroup' || sourceType === 'clientgrouptype'
-          );
-        }}
+        className="!w-3 !h-3 !bg-green-600 !border !border-green-800 !z-50"
+        style={{ left: '10px' }}
+      />
+
+      <Handle
+        type="target"
+        id="stream_target_top"
+        position={Position.Top}
+        className="!w-3 !h-3 !bg-green-600 !border !border-green-800 !z-50"
+        style={{ top: '10px' }}
+      />
+
+      <Handle
+        type="target"
+        id="stream_target_bottom"
+        position={Position.Bottom}
+        className="!w-3 !h-3 !bg-green-600 !border !border-green-800 !z-50"
+        style={{ bottom: '10px' }}
+      />
+
+      <Handle
+        type="target"
+        id="stream_target_right"
+        position={Position.Right}
+        className="!w-3 !h-3 !bg-green-600 !border !border-green-800 !z-50"
+        style={{ right: '10px' }}
       />
     </div>
   );

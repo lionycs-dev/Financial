@@ -323,9 +323,14 @@ function DependencyGraphInner() {
 
   const onConnect = useCallback(
     (params: Connection) => {
+      console.log('onConnect called:', params);
+      console.log('isValidConnection result:', isValidConnection(params));
+
       if (params.source && params.target && isValidConnection(params)) {
         const rawSourceType = params.source.split('-')[0];
         const rawTargetType = params.target.split('-')[0];
+
+        console.log('Valid connection! Opening modal...');
 
         const sourceType:
           | 'stream'
@@ -363,6 +368,8 @@ function DependencyGraphInner() {
           targetType,
         });
         setModalOpen(true);
+      } else {
+        console.log('Invalid connection - modal not opened');
       }
     },
     [isValidConnection]
@@ -537,6 +544,7 @@ function DependencyGraphInner() {
             id: `stream-${stream.id}`,
             type: 'stream',
             position: { x: 0, y: 0 }, // ELK will set position
+            zIndex: 10, // Higher z-index so circles appear above diamonds
             data: {
               id: stream.id,
               name: stream.name,
@@ -552,6 +560,7 @@ function DependencyGraphInner() {
             id: `product-${product.id}`,
             type: 'product',
             position: { x: 0, y: 0 },
+            zIndex: 1, // Lower z-index so diamonds appear below circles
             data: {
               id: product.id,
               name: product.name,
@@ -589,6 +598,7 @@ function DependencyGraphInner() {
             id: `clientgrouptype-${groupType.id}`,
             type: 'clientGroupType',
             position: { x: 0, y: 0 }, // ELK will set position
+            zIndex: 10, // Higher z-index so circles appear above diamonds
             data: {
               id: groupType.id,
               name: groupType.name,
@@ -604,6 +614,7 @@ function DependencyGraphInner() {
             id: `clientgroup-${group.id}`,
             type: 'clientGroup',
             position: { x: 0, y: 0 },
+            zIndex: 1, // Lower z-index so diamonds appear below circles
             data: {
               id: group.id,
               name: group.name,
@@ -808,6 +819,7 @@ function DependencyGraphInner() {
                 id: `stream-${stream.id}`,
                 type: 'stream',
                 position: { x: 0, y: 0 },
+                zIndex: 10, // Higher z-index so circles appear above diamonds
                 data: {
                   id: stream.id,
                   name: stream.name,
@@ -823,6 +835,7 @@ function DependencyGraphInner() {
                 id: `product-${product.id}`,
                 type: 'product',
                 position: { x: 0, y: 0 },
+                zIndex: 1, // Lower z-index so diamonds appear below circles
                 data: {
                   id: product.id,
                   name: product.name,
@@ -860,6 +873,7 @@ function DependencyGraphInner() {
                 id: `clientgrouptype-${groupType.id}`,
                 type: 'clientGroupType',
                 position: { x: 0, y: 0 }, // ELK will set position
+                zIndex: 10, // Higher z-index so circles appear above diamonds
                 data: {
                   id: groupType.id,
                   name: groupType.name,
@@ -875,6 +889,7 @@ function DependencyGraphInner() {
                 id: `clientgroup-${group.id}`,
                 type: 'clientGroup',
                 position: { x: 0, y: 0 },
+                zIndex: 1, // Lower z-index so diamonds appear below circles
                 data: {
                   id: group.id,
                   name: group.name,

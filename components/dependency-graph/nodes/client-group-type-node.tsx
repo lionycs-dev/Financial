@@ -30,16 +30,37 @@ export function ClientGroupTypeNode({
         <div className="text-sm font-medium text-purple-800">{data.name}</div>
       </div>
 
-      {/* Connection handle on right side */}
+      {/* Connection handles - small and positioned with z-index */}
       <Handle
         type="source"
-        id={`clientgrouptype_to_diamond`}
+        id="clientgrouptype_source"
         position={Position.Right}
-        className="w-4 h-4 bg-purple-600 border-2 border-purple-800"
-        isValidConnection={(connection) => {
-          const targetType = connection.target?.split('-')[0];
-          return targetType === 'product' || targetType === 'clientgroup';
-        }}
+        className="!w-3 !h-3 !bg-purple-600 !border !border-purple-800 !z-50"
+        style={{ right: '10px' }}
+      />
+
+      <Handle
+        type="source"
+        id="clientgrouptype_source_top"
+        position={Position.Top}
+        className="!w-3 !h-3 !bg-purple-600 !border !border-purple-800 !z-50"
+        style={{ top: '10px' }}
+      />
+
+      <Handle
+        type="source"
+        id="clientgrouptype_source_bottom"
+        position={Position.Bottom}
+        className="!w-3 !h-3 !bg-purple-600 !border !border-purple-800 !z-50"
+        style={{ bottom: '10px' }}
+      />
+
+      <Handle
+        type="source"
+        id="clientgrouptype_source_left"
+        position={Position.Left}
+        className="!w-3 !h-3 !bg-purple-600 !border !border-purple-800 !z-50"
+        style={{ left: '10px' }}
       />
     </div>
   );

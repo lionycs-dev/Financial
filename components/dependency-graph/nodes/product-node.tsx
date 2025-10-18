@@ -32,33 +32,33 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
         <div className="text-[10px] text-green-800">${data.unitCost}</div>
       </div>
 
-      {/* Connection handles */}
+      {/* Connection handles - small and subtle */}
       <Handle
         type="target"
-        id={`product_target`}
+        id="product_target"
         position={Position.Left}
-        className="w-3 h-3 bg-green-600 border-2 border-green-800"
-        style={{ left: '-6px', transform: 'rotate(-45deg)' }}
-        isValidConnection={(connection) => {
-          const sourceType = connection.source?.split('-')[0];
-          return (
-            sourceType === 'clientgroup' ||
-            sourceType === 'product' ||
-            sourceType === 'clientgrouptype'
-          );
-        }}
+        className="!w-2 !h-2 !bg-green-600 !border !border-green-800"
       />
 
       <Handle
         type="source"
-        id={`product_to_diamond`}
+        id="product_source"
         position={Position.Right}
-        className="w-3 h-3 bg-green-600 border-2 border-green-800"
-        style={{ right: '-6px', transform: 'rotate(-45deg)' }}
-        isValidConnection={(connection) => {
-          const targetType = connection.target?.split('-')[0];
-          return targetType === 'product' || targetType === 'clientgroup';
-        }}
+        className="!w-2 !h-2 !bg-green-600 !border !border-green-800"
+      />
+
+      <Handle
+        type="target"
+        id="product_target_top"
+        position={Position.Top}
+        className="!w-2 !h-2 !bg-green-600 !border !border-green-800"
+      />
+
+      <Handle
+        type="source"
+        id="product_source_bottom"
+        position={Position.Bottom}
+        className="!w-2 !h-2 !bg-green-600 !border !border-green-800"
       />
     </div>
   );
