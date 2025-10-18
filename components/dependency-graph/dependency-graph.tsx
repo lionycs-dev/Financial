@@ -140,7 +140,7 @@ type ConnectionData = {
 
 type RelationshipData = {
   type: 'first_purchase' | 'existing_relationship' | 'upselling';
-  weight: string;
+  weight?: string;
   probability?: string;
   afterMonths?: string;
 };
