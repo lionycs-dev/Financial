@@ -8,17 +8,20 @@ interface ClientGroupTypeNodeData {
   name: string;
   type: 'B2B' | 'B2C' | 'DTC';
   description?: string;
+  circleSize?: number;
 }
 
 export function ClientGroupTypeNode({
   data,
 }: NodeProps<ClientGroupTypeNodeData>) {
+  const size = data.circleSize || 350;
+
   return (
     <div
       className="bg-purple-100/50 border-4 border-purple-400 rounded-full flex items-center justify-center relative"
       style={{
-        width: '350px',
-        height: '350px',
+        width: `${size}px`,
+        height: `${size}px`,
       }}
     >
       {/* Header at top of circle */}

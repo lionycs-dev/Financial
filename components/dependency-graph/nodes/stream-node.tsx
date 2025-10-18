@@ -8,15 +8,18 @@ interface StreamNodeData {
   name: string;
   type: string;
   description?: string | null;
+  circleSize?: number;
 }
 
 export function StreamNode({ data }: NodeProps<StreamNodeData>) {
+  const size = data.circleSize || 350;
+
   return (
     <div
       className="bg-green-100/50 border-4 border-green-400 rounded-full flex items-center justify-center relative"
       style={{
-        width: '350px',
-        height: '350px',
+        width: `${size}px`,
+        height: `${size}px`,
       }}
     >
       {/* Header at top of circle */}

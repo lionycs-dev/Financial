@@ -59,13 +59,57 @@ const CLIENT_GROUP_TYPE_ID_TO_STRING: Record<number, string> = {
   3: 'DTC',
 };
 
-// Diamond pattern positions for child nodes (relative to parent center)
-const DIAMOND_POSITIONS = [
-  { x: 0, y: -80 }, // top
-  { x: 80, y: 0 }, // right
-  { x: 0, y: 80 }, // bottom
-  { x: -80, y: 0 }, // left
-];
+// Calculate circle size based on number of children
+const calculateCircleSize = (childCount: number): number => {
+  if (childCount === 0) return 350; // Default size
+
+  // Calculate grid dimensions needed
+  const cols = Math.ceil(Math.sqrt(childCount));
+  const rows = Math.ceil(childCount / cols);
+
+  // Each diamond needs ~120px space, plus padding
+  const gridWidth = cols * 120 + 100; // Extra padding
+  const gridHeight = rows * 120 + 100;
+
+  // Circle diameter should fit the grid
+  const requiredSize = Math.max(gridWidth, gridHeight, 350);
+
+  return requiredSize;
+};
+
+// Create grid positions for children inside a circle
+const createGridLayout = (
+  childCount: number,
+  circleSize: number
+): { x: number; y: number }[] => {
+  if (childCount === 0) return [];
+
+  const cols = Math.ceil(Math.sqrt(childCount));
+  const rows = Math.ceil(childCount / cols);
+
+  const positions: { x: number; y: number }[] = [];
+
+  // Center the grid within the circle
+  const cellWidth = 120;
+  const cellHeight = 120;
+  const gridWidth = cols * cellWidth;
+  const gridHeight = rows * cellHeight;
+
+  const startX = (circleSize - gridWidth) / 2;
+  const startY = (circleSize - gridHeight) / 2;
+
+  for (let i = 0; i < childCount; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+
+    positions.push({
+      x: startX + col * cellWidth + cellWidth / 2 - 50, // Center the 100px diamond
+      y: startY + row * cellHeight + cellHeight / 2 - 50,
+    });
+  }
+
+  return positions;
+};
 
 // Save node positions to localStorage
 const saveLayoutToStorage = (nodes: Node[]) => {
@@ -144,34 +188,6 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
   const layoutedNodes: Node[] = [];
 
-  // Layout parameters
-  const horizontalSpacing = 450; // Increased spacing for larger circles
-  const verticalSpacing = 450;
-  const startX = 200;
-  const startY = 200;
-
-  // Position client group type parent circles on left
-  parentClientGroupTypeNodes.forEach((node, index) => {
-    layoutedNodes.push({
-      ...node,
-      position: {
-        x: startX,
-        y: startY + index * verticalSpacing,
-      },
-    });
-  });
-
-  // Position revenue stream parent circles on right
-  parentStreamNodes.forEach((node, index) => {
-    layoutedNodes.push({
-      ...node,
-      position: {
-        x: startX + horizontalSpacing * 2,
-        y: startY + index * verticalSpacing,
-      },
-    });
-  });
-
   // Group child client groups by their parent type
   const clientGroupsByType: Record<string, typeof childClientGroupNodes> = {
     B2B: [],
@@ -186,24 +202,6 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     }
   });
 
-  // Position child client groups within their parent circles
-  Object.entries(clientGroupsByType).forEach(([type, children]) => {
-    const parentNode = layoutedNodes.find(
-      (n) => n.type === 'clientGroupType' && n.data.type === type
-    );
-    if (parentNode) {
-      children.forEach((child, index) => {
-        const position = DIAMOND_POSITIONS[index % DIAMOND_POSITIONS.length];
-        layoutedNodes.push({
-          ...child,
-          parentNode: `clientgrouptype-${type}`,
-          extent: 'parent' as const,
-          position: position,
-        });
-      });
-    }
-  });
-
   // Group child products by their parent stream
   const productsByStream: Record<number, typeof childProductNodes> = {};
 
@@ -215,19 +213,102 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     productsByStream[streamId].push(node);
   });
 
-  // Position child products within their parent circles
+  // Calculate spacing based on max circle size
+  let maxCircleSize = 350;
+  parentClientGroupTypeNodes.forEach((node) => {
+    const type = node.data.type as 'B2B' | 'B2C' | 'DTC';
+    const childCount = clientGroupsByType[type]?.length || 0;
+    const size = calculateCircleSize(childCount);
+    maxCircleSize = Math.max(maxCircleSize, size);
+  });
+  parentStreamNodes.forEach((node) => {
+    const streamId = node.data.id;
+    const childCount = productsByStream[streamId]?.length || 0;
+    const size = calculateCircleSize(childCount);
+    maxCircleSize = Math.max(maxCircleSize, size);
+  });
+
+  // Layout parameters with dynamic spacing
+  const horizontalSpacing = maxCircleSize + 150;
+  const verticalSpacing = maxCircleSize + 150;
+  const startX = 200;
+  const startY = 200;
+
+  // Position client group type parent circles on left
+  parentClientGroupTypeNodes.forEach((node, index) => {
+    const type = node.data.type as 'B2B' | 'B2C' | 'DTC';
+    const childCount = clientGroupsByType[type]?.length || 0;
+    const circleSize = calculateCircleSize(childCount);
+
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: startX,
+        y: startY + index * verticalSpacing,
+      },
+      data: {
+        ...node.data,
+        circleSize,
+      },
+    });
+  });
+
+  // Position revenue stream parent circles on right
+  parentStreamNodes.forEach((node, index) => {
+    const streamId = node.data.id;
+    const childCount = productsByStream[streamId]?.length || 0;
+    const circleSize = calculateCircleSize(childCount);
+
+    layoutedNodes.push({
+      ...node,
+      position: {
+        x: startX + horizontalSpacing * 2,
+        y: startY + index * verticalSpacing,
+      },
+      data: {
+        ...node.data,
+        circleSize,
+      },
+    });
+  });
+
+  // Position child client groups INSIDE their parent circles with grid layout
+  Object.entries(clientGroupsByType).forEach(([type, children]) => {
+    const parentNode = layoutedNodes.find(
+      (n) => n.type === 'clientGroupType' && n.data.type === type
+    );
+    if (parentNode && children.length > 0) {
+      const circleSize = parentNode.data.circleSize as number;
+      const gridPositions = createGridLayout(children.length, circleSize);
+
+      children.forEach((child, index) => {
+        const gridPos = gridPositions[index];
+        layoutedNodes.push({
+          ...child,
+          position: gridPos,
+          parentNode: parentNode.id,
+          extent: 'parent',
+        });
+      });
+    }
+  });
+
+  // Position child products INSIDE their parent circles with grid layout
   Object.entries(productsByStream).forEach(([streamId, children]) => {
     const parentNode = layoutedNodes.find(
       (n) => n.type === 'stream' && n.data.id === parseInt(streamId)
     );
-    if (parentNode) {
+    if (parentNode && children.length > 0) {
+      const circleSize = parentNode.data.circleSize as number;
+      const gridPositions = createGridLayout(children.length, circleSize);
+
       children.forEach((child, index) => {
-        const position = DIAMOND_POSITIONS[index % DIAMOND_POSITIONS.length];
+        const gridPos = gridPositions[index];
         layoutedNodes.push({
           ...child,
-          parentNode: `stream-${streamId}`,
-          extent: 'parent' as const,
-          position: position,
+          position: gridPos,
+          parentNode: parentNode.id,
+          extent: 'parent',
         });
       });
     }
@@ -544,7 +625,7 @@ function DependencyGraphInner() {
             id: `stream-${stream.id}`,
             type: 'stream',
             position: { x: 0, y: 0 }, // ELK will set position
-            zIndex: 10, // Higher z-index so circles appear above diamonds
+            zIndex: 1, // Lower z-index so circles appear below diamonds and edges
             data: {
               id: stream.id,
               name: stream.name,
@@ -560,7 +641,7 @@ function DependencyGraphInner() {
             id: `product-${product.id}`,
             type: 'product',
             position: { x: 0, y: 0 },
-            zIndex: 1, // Lower z-index so diamonds appear below circles
+            zIndex: 10, // Higher z-index so diamonds appear above circles
             data: {
               id: product.id,
               name: product.name,
@@ -598,7 +679,7 @@ function DependencyGraphInner() {
             id: `clientgrouptype-${groupType.id}`,
             type: 'clientGroupType',
             position: { x: 0, y: 0 }, // ELK will set position
-            zIndex: 10, // Higher z-index so circles appear above diamonds
+            zIndex: 1, // Lower z-index so circles appear below diamonds and edges
             data: {
               id: groupType.id,
               name: groupType.name,
@@ -614,7 +695,7 @@ function DependencyGraphInner() {
             id: `clientgroup-${group.id}`,
             type: 'clientGroup',
             position: { x: 0, y: 0 },
-            zIndex: 1, // Lower z-index so diamonds appear below circles
+            zIndex: 10, // Higher z-index so diamonds appear above circles
             data: {
               id: group.id,
               name: group.name,
@@ -819,7 +900,7 @@ function DependencyGraphInner() {
                 id: `stream-${stream.id}`,
                 type: 'stream',
                 position: { x: 0, y: 0 },
-                zIndex: 10, // Higher z-index so circles appear above diamonds
+                zIndex: 1, // Lower z-index so circles appear below diamonds and edges
                 data: {
                   id: stream.id,
                   name: stream.name,
@@ -835,7 +916,7 @@ function DependencyGraphInner() {
                 id: `product-${product.id}`,
                 type: 'product',
                 position: { x: 0, y: 0 },
-                zIndex: 1, // Lower z-index so diamonds appear below circles
+                zIndex: 10, // Higher z-index so diamonds appear above circles
                 data: {
                   id: product.id,
                   name: product.name,
@@ -873,7 +954,7 @@ function DependencyGraphInner() {
                 id: `clientgrouptype-${groupType.id}`,
                 type: 'clientGroupType',
                 position: { x: 0, y: 0 }, // ELK will set position
-                zIndex: 10, // Higher z-index so circles appear above diamonds
+                zIndex: 1, // Lower z-index so circles appear below diamonds and edges
                 data: {
                   id: groupType.id,
                   name: groupType.name,
@@ -889,7 +970,7 @@ function DependencyGraphInner() {
                 id: `clientgroup-${group.id}`,
                 type: 'clientGroup',
                 position: { x: 0, y: 0 },
-                zIndex: 1, // Lower z-index so diamonds appear below circles
+                zIndex: 10, // Higher z-index so diamonds appear above circles
                 data: {
                   id: group.id,
                   name: group.name,
