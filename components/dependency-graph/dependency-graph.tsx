@@ -320,6 +320,7 @@ function createStreamNodes(streams: StreamData[]): Node[] {
 
 /**
  * Creates product nodes from data.
+ * Sets parentNode and extent to ensure proper parent-child relationship.
  */
 function createProductNodes(products: ProductData[]): Node[] {
   return products.map((product) => ({
@@ -327,6 +328,8 @@ function createProductNodes(products: ProductData[]): Node[] {
     type: 'product' as const,
     position: { x: 0, y: 0 },
     zIndex: Z_INDEX.DIAMOND,
+    parentNode: `stream-${product.productStreamId}`,
+    extent: 'parent' as const,
     data: {
       id: product.id,
       name: product.name,
@@ -357,6 +360,7 @@ function createClientGroupTypeNodes(): Node[] {
 
 /**
  * Creates client group nodes from data.
+ * Sets parentNode and extent to ensure proper parent-child relationship.
  */
 function createClientGroupNodes(clientGroups: ClientGroupData[]): Node[] {
   return clientGroups.map((group) => ({
@@ -364,6 +368,8 @@ function createClientGroupNodes(clientGroups: ClientGroupData[]): Node[] {
     type: 'clientGroup' as const,
     position: { x: 0, y: 0 },
     zIndex: Z_INDEX.DIAMOND,
+    parentNode: `clientgrouptype-${group.type}`,
+    extent: 'parent' as const,
     data: {
       id: group.id,
       name: group.name,
@@ -459,8 +465,41 @@ function getLayoutedElements(
       position: savedPositions[node.id] || node.position || { x: 0, y: 0 },
     }));
 
+    // Calculate midpoint positions for FirstPurchaseNodes that don't have saved positions
+    const finalNodes = layoutedNodes.map((node) => {
+      if (
+        node.type === 'firstPurchaseNode' &&
+        (!savedPositions[node.id] ||
+          (savedPositions[node.id].x === 0 && savedPositions[node.id].y === 0))
+      ) {
+        // Calculate midpoint between source and target
+        const sourceNode = layoutedNodes.find(
+          (n) => n.id === node.data.sourceId
+        );
+        const targetNode = layoutedNodes.find(
+          (n) => n.id === node.data.targetId
+        );
+
+        if (sourceNode && targetNode) {
+          const sourceCenterX = sourceNode.position.x + 50;
+          const sourceCenterY = sourceNode.position.y + 50;
+          const targetCenterX = targetNode.position.x + 50;
+          const targetCenterY = targetNode.position.y + 50;
+
+          return {
+            ...node,
+            position: {
+              x: (sourceCenterX + targetCenterX) / 2 - 32,
+              y: (sourceCenterY + targetCenterY) / 2 - 32,
+            },
+          };
+        }
+      }
+      return node;
+    });
+
     return Promise.resolve({
-      nodes: layoutedNodes,
+      nodes: finalNodes,
       edges: validEdges,
     });
   }
@@ -537,8 +576,29 @@ function applyDefaultLayout(
   );
   positionChildrenInParents(productsByStream, layoutedNodes, 'stream');
 
-  // Add FirstPurchaseNodes without repositioning (keep their existing positions)
-  layoutedNodes.push(...firstPurchaseNodes);
+  // Calculate and add FirstPurchaseNodes with midpoint positions
+  firstPurchaseNodes.forEach((fpNode) => {
+    const sourceNode = layoutedNodes.find((n) => n.id === fpNode.data.sourceId);
+    const targetNode = layoutedNodes.find((n) => n.id === fpNode.data.targetId);
+
+    if (sourceNode && targetNode) {
+      const sourceCenterX = sourceNode.position.x + 50;
+      const sourceCenterY = sourceNode.position.y + 50;
+      const targetCenterX = targetNode.position.x + 50;
+      const targetCenterY = targetNode.position.y + 50;
+
+      layoutedNodes.push({
+        ...fpNode,
+        position: {
+          x: (sourceCenterX + targetCenterX) / 2 - 32,
+          y: (sourceCenterY + targetCenterY) / 2 - 32,
+        },
+      });
+    } else {
+      // Fallback: add with default position if nodes not found
+      layoutedNodes.push(fpNode);
+    }
+  });
 
   return Promise.resolve({
     nodes: layoutedNodes,
@@ -660,8 +720,7 @@ function positionChildrenInParents(
         layoutedNodes.push({
           ...child,
           position: gridPositions[index],
-          parentNode: parentNode.id,
-          extent: 'parent',
+          // parentNode and extent already set in node creation
         });
       });
     }
@@ -1160,32 +1219,12 @@ function DependencyGraphInner() {
 
             const fpNodeId = `firstpurchasenode-rel-${relationship.id}`;
 
-            // Calculate midpoint position between source and target
-            const sourceNode = newNodes.find((n) => n.id === sourceId);
-            const targetNode = newNodes.find((n) => n.id === targetId);
-
-            let fpNodePosition = { x: 500, y: 300 }; // Default position
-
-            if (sourceNode && targetNode) {
-              const sourcePos = sourceNode.position;
-              const targetPos = targetNode.position;
-
-              const sourceCenterX = sourcePos.x + 50;
-              const sourceCenterY = sourcePos.y + 50;
-              const targetCenterX = targetPos.x + 50;
-              const targetCenterY = targetPos.y + 50;
-
-              fpNodePosition = {
-                x: (sourceCenterX + targetCenterX) / 2 - 32,
-                y: (sourceCenterY + targetCenterY) / 2 - 32,
-              };
-            }
-
-            // Create FirstPurchaseNode
+            // Create FirstPurchaseNode with placeholder position
+            // The actual position will be calculated later based on layouted node positions
             const fpNode: Node = {
               id: fpNodeId,
               type: 'firstPurchaseNode',
-              position: fpNodePosition,
+              position: { x: 0, y: 0 }, // Placeholder - will be calculated in layout
               zIndex: Z_INDEX.FIRST_PURCHASE,
               data: {
                 relationshipId: relationship.id,
