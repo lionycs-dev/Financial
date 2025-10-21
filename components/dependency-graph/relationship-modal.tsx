@@ -73,8 +73,18 @@ type RelationshipFormData = z.infer<typeof relationshipSchema>;
 interface RelationshipModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  sourceType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
-  targetType: 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
+  sourceType:
+    | 'stream'
+    | 'product'
+    | 'clientGroup'
+    | 'clientGroupType'
+    | 'firstPurchaseNode';
+  targetType:
+    | 'stream'
+    | 'product'
+    | 'clientGroup'
+    | 'clientGroupType'
+    | 'firstPurchaseNode';
   sourceId: string;
   targetId: string;
   onSave: (data: RelationshipFormData) => void;
@@ -215,12 +225,18 @@ export function RelationshipModal({
   ): Array<{ value: RelationshipType; label: string }> {
     const validTypes: Array<{ value: RelationshipType; label: string }> = [];
 
-    // Product to Product: only upselling
-    if (source === 'product' && target === 'product') {
+    // FirstPurchaseNode to Product: only upselling
+    if (source === 'firstPurchaseNode' && target === 'product') {
       validTypes.push({
         value: 'upselling',
-        label: 'Upselling (product to product with timing)',
+        label: 'Upselling (from first purchase to another product)',
       });
+      return validTypes;
+    }
+
+    // Product to Product: deprecated (use FirstPurchaseNode instead)
+    if (source === 'product' && target === 'product') {
+      // No longer allow direct product-to-product upselling
       return validTypes;
     }
 

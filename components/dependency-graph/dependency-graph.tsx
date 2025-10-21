@@ -20,6 +20,7 @@ import { StreamNode } from './nodes/stream-node';
 import { ProductNode } from './nodes/product-node';
 import { ClientGroupNode } from './nodes/client-group-node';
 import { ClientGroupTypeNode } from './nodes/client-group-type-node';
+import { FirstPurchaseNode } from './nodes/first-purchase-node';
 import { RelationshipEdge } from './edges/relationship-edge';
 import { RelationshipModal } from './relationship-modal';
 import { ConnectionLine } from './connection-line';
@@ -42,17 +43,19 @@ const NODE_TYPES = {
   product: ProductNode,
   clientGroup: ClientGroupNode,
   clientGroupType: ClientGroupTypeNode,
+  firstPurchaseNode: FirstPurchaseNode,
 } as const;
 
 const EDGE_TYPES = {
   relationship: RelationshipEdge,
 } as const;
 
-// Z-index hierarchy for layering (circles < edges < diamonds)
+// Z-index hierarchy for layering (circles < edges < diamonds < first purchase nodes)
 const Z_INDEX = {
   CIRCLE: 1, // Background layer for circle containers
   EDGE: 5, // Middle layer for relationship arrows
   DIAMOND: 10, // Foreground layer for diamond nodes
+  FIRST_PURCHASE: 15, // Top layer for first purchase intermediate nodes
 } as const;
 
 // Layout configuration
@@ -118,9 +121,9 @@ const CLIENT_GROUP_TYPES = [
 // Valid connection patterns
 const VALID_CONNECTIONS = [
   { source: 'product', target: 'clientgroup' },
-  { source: 'clientgroup', target: 'product' },
-  { source: 'clientgroup', target: 'stream' },
-  { source: 'product', target: 'product' },
+  { source: 'clientgroup', target: 'product' }, // Creates FirstPurchaseNode
+  { source: 'clientgroup', target: 'stream' }, // Creates FirstPurchaseNode
+  { source: 'firstpurchasenode', target: 'product' }, // Upsell (only valid source for upselling)
   { source: 'product', target: 'clientgrouptype' },
   { source: 'clientgrouptype', target: 'product' },
 ] as const;
@@ -129,7 +132,12 @@ const VALID_CONNECTIONS = [
 // Types
 // ============================================================================
 
-type NodeType = 'stream' | 'product' | 'clientGroup' | 'clientGroupType';
+type NodeType =
+  | 'stream'
+  | 'product'
+  | 'clientGroup'
+  | 'clientGroupType'
+  | 'firstPurchaseNode';
 
 type ConnectionData = {
   source: string;
@@ -379,7 +387,9 @@ function normalizeNodeType(type: string): string {
     ? 'clientgroup'
     : type === 'clientGroupType'
       ? 'clientgrouptype'
-      : type;
+      : type === 'firstPurchaseNode'
+        ? 'firstpurchasenode'
+        : type;
 }
 
 /**
@@ -390,7 +400,9 @@ function denormalizeNodeType(type: string): NodeType {
     ? 'clientGroup'
     : type === 'clientgrouptype'
       ? 'clientGroupType'
-      : (type as NodeType);
+      : type === 'firstpurchasenode'
+        ? 'firstPurchaseNode'
+        : (type as NodeType);
 }
 
 /**
@@ -460,6 +472,7 @@ function getLayoutedElements(
 /**
  * Applies the default grid layout to nodes.
  * Circles are positioned in columns, diamonds are positioned inside their parent circles.
+ * FirstPurchaseNodes are not repositioned (they keep their calculated midpoint positions).
  */
 function applyDefaultLayout(
   nodes: Node[],
@@ -473,6 +486,9 @@ function applyDefaultLayout(
   );
   const childClientGroupNodes = nodes.filter(
     (node) => node.type === 'clientGroup'
+  );
+  const firstPurchaseNodes = nodes.filter(
+    (node) => node.type === 'firstPurchaseNode'
   );
 
   // Group children by their parents
@@ -520,6 +536,9 @@ function applyDefaultLayout(
     'clientGroupType'
   );
   positionChildrenInParents(productsByStream, layoutedNodes, 'stream');
+
+  // Add FirstPurchaseNodes without repositioning (keep their existing positions)
+  layoutedNodes.push(...firstPurchaseNodes);
 
   return Promise.resolve({
     nodes: layoutedNodes,
@@ -802,7 +821,20 @@ function DependencyGraphInner() {
           const result = await deleteRelationship(id);
 
           if (result.success) {
-            setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
+            // Remove the edge(s)
+            setEdges((eds) => {
+              // For first_purchase relationships, remove both edges (to-fp and from-fp)
+              return eds.filter(
+                (edge) =>
+                  edge.id !== edgeId &&
+                  edge.id !== `relationship-${id}-to-fp` &&
+                  edge.id !== `relationship-${id}-from-fp`
+              );
+            });
+
+            // Remove FirstPurchaseNode if it exists
+            const fpNodeId = `firstpurchasenode-rel-${id}`;
+            setNodes((nds) => nds.filter((node) => node.id !== fpNodeId));
           } else {
             console.error('Failed to delete relationship:', result.error);
           }
@@ -811,7 +843,7 @@ function DependencyGraphInner() {
         }
       },
     }),
-    [setEdges]
+    [setEdges, setNodes]
   );
 
   /**
@@ -825,13 +857,15 @@ function DependencyGraphInner() {
         const sourceIdParts = connectionData.source.split('-');
         const targetIdParts = connectionData.target.split('-');
 
-        // Convert IDs (handle client group type string IDs)
+        // Convert IDs (handle client group type string IDs and FirstPurchaseNode IDs)
         const finalSourceId =
           connectionData.sourceType === 'clientGroupType'
             ? CLIENT_GROUP_TYPE_IDS[
                 sourceIdParts[1] as keyof typeof CLIENT_GROUP_TYPE_IDS
               ]
-            : parseInt(sourceIdParts[1]);
+            : connectionData.sourceType === 'firstPurchaseNode'
+              ? parseInt(sourceIdParts[2]) // FirstPurchaseNode ID format: firstpurchasenode-rel-{relationshipId}
+              : parseInt(sourceIdParts[1]);
 
         const finalTargetId =
           connectionData.targetType === 'clientGroupType'
@@ -840,6 +874,26 @@ function DependencyGraphInner() {
               ]
             : parseInt(targetIdParts[1]);
 
+        // Handle upselling from FirstPurchaseNode
+        let actualSourceType = connectionData.sourceType;
+        let actualSourceId = finalSourceId;
+
+        if (connectionData.sourceType === 'firstPurchaseNode') {
+          // For upselling, we need to find the original target product from the FirstPurchaseNode
+          const fpNode = nodes.find((n) => n.id === connectionData.source);
+          if (fpNode && fpNode.data.targetType === 'product') {
+            actualSourceType = 'product';
+            // Extract product ID from targetId (format: "product-123")
+            const targetProductId = parseInt(
+              fpNode.data.targetId.split('-')[1]
+            );
+            actualSourceId = targetProductId;
+          } else {
+            console.error('Could not find product from FirstPurchaseNode');
+            return;
+          }
+        }
+
         // Create or update relationship
         const result = editingRelationship?.data?.relationshipId
           ? await updateRelationship(
@@ -847,8 +901,8 @@ function DependencyGraphInner() {
               relationshipData
             )
           : await createRelationship({
-              sourceType: connectionData.sourceType,
-              sourceId: finalSourceId,
+              sourceType: actualSourceType,
+              sourceId: actualSourceId,
               targetType: connectionData.targetType,
               targetId: finalTargetId,
               relationshipType: relationshipData.type,
@@ -877,23 +931,128 @@ function DependencyGraphInner() {
             )
           );
         } else if (result.data) {
-          const newEdge: Edge = {
-            id: `relationship-${result.data.id}`,
-            source: connectionData.source,
-            target: connectionData.target,
-            type: 'relationship',
-            zIndex: Z_INDEX.EDGE,
-            data: createRelationshipEdgeData(
-              relationshipData,
-              result.data.id,
-              connectionData.source,
-              connectionData.target,
-              connectionData.sourceType,
-              connectionData.targetType
-            ),
-          };
+          // Special handling for first_purchase relationships
+          if (relationshipData.type === 'first_purchase') {
+            // Create intermediate FirstPurchaseNode
+            const fpNodeId = `firstpurchasenode-rel-${result.data.id}`;
 
-          setEdges((eds) => addEdge(newEdge, eds));
+            // Calculate midpoint position between source and target
+            const sourceNode = nodes.find(
+              (n) => n.id === connectionData.source
+            );
+            const targetNode = nodes.find(
+              (n) => n.id === connectionData.target
+            );
+
+            let fpNodePosition = { x: 500, y: 300 }; // Default position
+
+            if (sourceNode && targetNode) {
+              const sourcePos = sourceNode.position;
+              const targetPos = targetNode.position;
+
+              // Calculate actual center positions considering node sizes
+              const sourceCenterX = sourcePos.x + 50; // Approximate node center
+              const sourceCenterY = sourcePos.y + 50;
+              const targetCenterX = targetPos.x + 50;
+              const targetCenterY = targetPos.y + 50;
+
+              fpNodePosition = {
+                x: (sourceCenterX + targetCenterX) / 2 - 32, // Center the 64px node
+                y: (sourceCenterY + targetCenterY) / 2 - 32,
+              };
+            }
+
+            // Create FirstPurchaseNode
+            const fpNode: Node = {
+              id: fpNodeId,
+              type: 'firstPurchaseNode',
+              position: fpNodePosition,
+              zIndex: Z_INDEX.FIRST_PURCHASE,
+              data: {
+                relationshipId: result.data.id,
+                sourceId: connectionData.source,
+                targetId: connectionData.target,
+                sourceType: connectionData.sourceType,
+                targetType: connectionData.targetType,
+                weight: relationshipData.weight,
+              },
+            };
+
+            // Create two edges: source -> FPNode and FPNode -> target
+            const edge1: Edge = {
+              id: `relationship-${result.data.id}-to-fp`,
+              source: connectionData.source,
+              target: fpNodeId,
+              type: 'relationship',
+              zIndex: Z_INDEX.EDGE,
+              data: createRelationshipEdgeData(
+                relationshipData,
+                result.data.id,
+                connectionData.source,
+                fpNodeId,
+                connectionData.sourceType,
+                'firstPurchaseNode'
+              ),
+            };
+
+            const edge2: Edge = {
+              id: `relationship-${result.data.id}-from-fp`,
+              source: fpNodeId,
+              target: connectionData.target,
+              type: 'relationship',
+              zIndex: Z_INDEX.EDGE,
+              data: createRelationshipEdgeData(
+                relationshipData,
+                result.data.id,
+                fpNodeId,
+                connectionData.target,
+                'firstPurchaseNode',
+                connectionData.targetType
+              ),
+            };
+
+            // Add node and edges to graph
+            setNodes((nds) => [...nds, fpNode]);
+            setEdges((eds) => [...eds, edge1, edge2]);
+          } else if (relationshipData.type === 'upselling') {
+            // Upselling from FirstPurchaseNode - create single edge
+            const newEdge: Edge = {
+              id: `relationship-${result.data.id}`,
+              source: connectionData.source,
+              target: connectionData.target,
+              type: 'relationship',
+              zIndex: Z_INDEX.EDGE,
+              data: createRelationshipEdgeData(
+                relationshipData,
+                result.data.id,
+                connectionData.source,
+                connectionData.target,
+                connectionData.sourceType,
+                connectionData.targetType
+              ),
+            };
+
+            setEdges((eds) => addEdge(newEdge, eds));
+          } else {
+            // Standard relationship (existing_relationship, etc.)
+            const newEdge: Edge = {
+              id: `relationship-${result.data.id}`,
+              source: connectionData.source,
+              target: connectionData.target,
+              type: 'relationship',
+              zIndex: Z_INDEX.EDGE,
+              data: createRelationshipEdgeData(
+                relationshipData,
+                result.data.id,
+                connectionData.source,
+                connectionData.target,
+                connectionData.sourceType,
+                connectionData.targetType
+              ),
+            };
+
+            setEdges((eds) => addEdge(newEdge, eds));
+          }
         }
 
         setConnectionData(null);
@@ -936,7 +1095,14 @@ function DependencyGraphInner() {
         console.error('Error saving relationship:', error);
       }
     },
-    [connectionData, editingRelationship, setEdges, createRelationshipEdgeData]
+    [
+      connectionData,
+      editingRelationship,
+      nodes,
+      setNodes,
+      setEdges,
+      createRelationshipEdgeData,
+    ]
   );
 
   // ============================================================================
@@ -965,45 +1131,176 @@ function DependencyGraphInner() {
           ...createClientGroupNodes(clientGroups),
         ];
 
-        // Create all edges
-        const newEdges: Edge[] = relationships.map((relationship) => {
-          const sourceId = createNodeId(
-            relationship.sourceType,
-            relationship.sourceId,
-            relationship.sourceType === 'clientGroupType'
-          );
-          const targetId = createNodeId(
-            relationship.targetType,
-            relationship.targetId,
-            relationship.targetType === 'clientGroupType'
-          );
+        // Create FirstPurchaseNodes and edges
+        // First pass: create FirstPurchaseNodes from first_purchase relationships
+        const firstPurchaseNodes: Node[] = [];
+        const newEdges: Edge[] = [];
+        const productToFPNodeMap = new Map<number, string>(); // Maps product ID to its FirstPurchaseNode ID
 
-          const sourceType = denormalizeNodeType(
-            normalizeNodeType(relationship.sourceType)
-          );
-          const targetType = denormalizeNodeType(
-            normalizeNodeType(relationship.targetType)
-          );
+        // First pass: create FirstPurchaseNodes
+        relationships.forEach((relationship) => {
+          if (relationship.relationshipType === 'first_purchase') {
+            const sourceId = createNodeId(
+              relationship.sourceType,
+              relationship.sourceId,
+              relationship.sourceType === 'clientGroupType'
+            );
+            const targetId = createNodeId(
+              relationship.targetType,
+              relationship.targetId,
+              relationship.targetType === 'clientGroupType'
+            );
 
-          return {
-            id: `relationship-${relationship.id}`,
-            source: sourceId,
-            target: targetId,
-            type: 'relationship',
-            zIndex: Z_INDEX.EDGE,
-            data: createRelationshipEdgeData(
-              relationship.properties as RelationshipData,
-              relationship.id,
-              sourceId,
-              targetId,
-              sourceType,
-              targetType
-            ),
-          };
+            const sourceType = denormalizeNodeType(
+              normalizeNodeType(relationship.sourceType)
+            );
+            const targetType = denormalizeNodeType(
+              normalizeNodeType(relationship.targetType)
+            );
+
+            const fpNodeId = `firstpurchasenode-rel-${relationship.id}`;
+
+            // Calculate midpoint position between source and target
+            const sourceNode = newNodes.find((n) => n.id === sourceId);
+            const targetNode = newNodes.find((n) => n.id === targetId);
+
+            let fpNodePosition = { x: 500, y: 300 }; // Default position
+
+            if (sourceNode && targetNode) {
+              const sourcePos = sourceNode.position;
+              const targetPos = targetNode.position;
+
+              const sourceCenterX = sourcePos.x + 50;
+              const sourceCenterY = sourcePos.y + 50;
+              const targetCenterX = targetPos.x + 50;
+              const targetCenterY = targetPos.y + 50;
+
+              fpNodePosition = {
+                x: (sourceCenterX + targetCenterX) / 2 - 32,
+                y: (sourceCenterY + targetCenterY) / 2 - 32,
+              };
+            }
+
+            // Create FirstPurchaseNode
+            const fpNode: Node = {
+              id: fpNodeId,
+              type: 'firstPurchaseNode',
+              position: fpNodePosition,
+              zIndex: Z_INDEX.FIRST_PURCHASE,
+              data: {
+                relationshipId: relationship.id,
+                sourceId,
+                targetId,
+                sourceType,
+                targetType,
+                weight: relationship.properties.weight,
+              },
+            };
+
+            firstPurchaseNodes.push(fpNode);
+
+            // Map the target product to this FirstPurchaseNode
+            if (targetType === 'product') {
+              productToFPNodeMap.set(relationship.targetId, fpNodeId);
+            }
+
+            // Create two edges: source -> FPNode and FPNode -> target
+            const edge1: Edge = {
+              id: `relationship-${relationship.id}-to-fp`,
+              source: sourceId,
+              target: fpNodeId,
+              type: 'relationship',
+              zIndex: Z_INDEX.EDGE,
+              data: createRelationshipEdgeData(
+                relationship.properties as RelationshipData,
+                relationship.id,
+                sourceId,
+                fpNodeId,
+                sourceType,
+                'firstPurchaseNode'
+              ),
+            };
+
+            const edge2: Edge = {
+              id: `relationship-${relationship.id}-from-fp`,
+              source: fpNodeId,
+              target: targetId,
+              type: 'relationship',
+              zIndex: Z_INDEX.EDGE,
+              data: createRelationshipEdgeData(
+                relationship.properties as RelationshipData,
+                relationship.id,
+                fpNodeId,
+                targetId,
+                'firstPurchaseNode',
+                targetType
+              ),
+            };
+
+            newEdges.push(edge1, edge2);
+          }
         });
 
+        // Second pass: create edges for other relationships (including upsells)
+        relationships.forEach((relationship) => {
+          if (relationship.relationshipType !== 'first_purchase') {
+            let sourceId = createNodeId(
+              relationship.sourceType,
+              relationship.sourceId,
+              relationship.sourceType === 'clientGroupType'
+            );
+            const targetId = createNodeId(
+              relationship.targetType,
+              relationship.targetId,
+              relationship.targetType === 'clientGroupType'
+            );
+
+            let sourceType = denormalizeNodeType(
+              normalizeNodeType(relationship.sourceType)
+            );
+            const targetType = denormalizeNodeType(
+              normalizeNodeType(relationship.targetType)
+            );
+
+            // Check if this is an upsell from a product that has a FirstPurchaseNode
+            if (
+              relationship.relationshipType === 'upselling' &&
+              relationship.sourceType === 'product'
+            ) {
+              const fpNodeId = productToFPNodeMap.get(relationship.sourceId);
+              if (fpNodeId) {
+                // Redirect the edge to come from the FirstPurchaseNode instead
+                sourceId = fpNodeId;
+                sourceType = 'firstPurchaseNode';
+              }
+            }
+
+            // Create edge
+            const edge: Edge = {
+              id: `relationship-${relationship.id}`,
+              source: sourceId,
+              target: targetId,
+              type: 'relationship',
+              zIndex: Z_INDEX.EDGE,
+              data: createRelationshipEdgeData(
+                relationship.properties as RelationshipData,
+                relationship.id,
+                sourceId,
+                targetId,
+                sourceType,
+                targetType
+              ),
+            };
+
+            newEdges.push(edge);
+          }
+        });
+
+        // Combine all nodes
+        const allNodes = [...newNodes, ...firstPurchaseNodes];
+
         // Apply layout
-        const layouted = await getLayoutedElements(newNodes, newEdges);
+        const layouted = await getLayoutedElements(allNodes, newEdges);
         if (layouted) {
           setNodes(layouted.nodes);
           setEdges(layouted.edges);
@@ -1033,14 +1330,21 @@ function DependencyGraphInner() {
             getClientGroups(),
           ]);
 
-          const newNodes: Node[] = [
+          const baseNodes: Node[] = [
             ...createStreamNodes(streams),
             ...createProductNodes(products),
             ...createClientGroupTypeNodes(),
             ...createClientGroupNodes(clientGroups),
           ];
 
-          const layouted = await getLayoutedElements(newNodes, edges);
+          // Preserve FirstPurchaseNodes from current state
+          const currentFPNodes = nodes.filter(
+            (n) => n.type === 'firstPurchaseNode'
+          );
+
+          const allNodes = [...baseNodes, ...currentFPNodes];
+
+          const layouted = await getLayoutedElements(allNodes, edges);
           if (layouted) {
             setNodes(layouted.nodes);
             setEdges(layouted.edges);
@@ -1056,7 +1360,7 @@ function DependencyGraphInner() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () =>
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [edges, loading, setNodes, setEdges]);
+  }, [edges, loading, nodes, setNodes, setEdges]);
 
   // ============================================================================
   // Render
