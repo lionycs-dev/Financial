@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Users } from 'lucide-react';
+import { Users, Link } from 'lucide-react';
 
 interface ClientGroupNodeData {
   id: number;
@@ -15,7 +15,7 @@ interface ClientGroupNodeData {
 export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
   return (
     <div
-      className="bg-purple-300 border-3 border-purple-700 flex items-center justify-center relative shadow-lg"
+      className="bg-purple-300 border-3 border-purple-700 flex items-center justify-center relative shadow-lg group"
       style={{
         width: '100px',
         height: '100px',
@@ -40,33 +40,43 @@ export function ClientGroupNode({ data }: NodeProps<ClientGroupNodeData>) {
         </div>
       </div>
 
-      {/* Connection handles - small and subtle */}
+      {/* Drag handle indicator - visible on hover */}
+      <div
+        className="absolute -right-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+        style={{ transform: 'rotate(-45deg) translateY(-50%)' }}
+      >
+        <div className="bg-purple-600 text-white rounded-full p-1.5 shadow-lg border-2 border-white">
+          <Link className="w-3 h-3" strokeWidth={2.5} />
+        </div>
+      </div>
+
+      {/* Connection handles - invisible but functional */}
       <Handle
         type="source"
         id="clientgroup_source"
         position={Position.Right}
-        className="!w-2 !h-2 !bg-purple-600 !border !border-purple-800"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       <Handle
         type="target"
         id="clientgroup_target"
         position={Position.Left}
-        className="!w-2 !h-2 !bg-purple-600 !border !border-purple-800"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       <Handle
         type="source"
         id="clientgroup_source_bottom"
         position={Position.Bottom}
-        className="!w-2 !h-2 !bg-purple-600 !border !border-purple-800"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       <Handle
         type="target"
         id="clientgroup_target_top"
         position={Position.Top}
-        className="!w-2 !h-2 !bg-purple-600 !border !border-purple-800"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
     </div>
   );

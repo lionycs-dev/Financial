@@ -16,7 +16,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
 
   return (
     <div
-      className="bg-green-100/50 border-4 border-green-400 rounded-full flex items-center justify-center relative"
+      className="bg-green-100/50 border-4 border-green-400 rounded-full flex items-center justify-center relative group"
       style={{
         width: `${size}px`,
         height: `${size}px`,
@@ -34,12 +34,12 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         <div className="text-xs text-green-700 italic">{data.type}</div>
       </div>
 
-      {/* Connection handles - small and positioned with z-index */}
+      {/* Connection handles - invisible but functional */}
       <Handle
         type="target"
         id="stream_target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-green-600 !border !border-green-800 !z-50"
+        className="!w-8 !h-8 !bg-transparent !border-0 !opacity-100"
         style={{ left: '10px' }}
       />
 
@@ -47,7 +47,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         type="target"
         id="stream_target_top"
         position={Position.Top}
-        className="!w-3 !h-3 !bg-green-600 !border !border-green-800 !z-50"
+        className="!w-8 !h-8 !bg-transparent !border-0 !opacity-100"
         style={{ top: '10px' }}
       />
 
@@ -55,7 +55,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         type="target"
         id="stream_target_bottom"
         position={Position.Bottom}
-        className="!w-3 !h-3 !bg-green-600 !border !border-green-800 !z-50"
+        className="!w-8 !h-8 !bg-transparent !border-0 !opacity-100"
         style={{ bottom: '10px' }}
       />
 
@@ -63,7 +63,7 @@ export function StreamNode({ data }: NodeProps<StreamNodeData>) {
         type="target"
         id="stream_target_right"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-green-600 !border !border-green-800 !z-50"
+        className="!w-8 !h-8 !bg-transparent !border-0 !opacity-100"
         style={{ right: '10px' }}
       />
     </div>

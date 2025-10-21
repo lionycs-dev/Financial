@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { EdgeProps, EdgeLabelRenderer, getSmoothStepPath } from 'reactflow';
 
 interface RelationshipEdgeData {
@@ -63,6 +64,26 @@ export function RelationshipEdge({
   };
 
   const edgeStyle = getEdgeStyle();
+
+  /**
+   * Add jitter/offset to prevent edge overlap when multiple edges connect same nodes.
+   * Uses edge ID to generate consistent but varied offsets, so edges don't stack on top of each other.
+   * Each edge gets a different path offset based on its ID hash.
+   */
+  const getEdgeOffset = () => {
+    // Create a hash from the edge ID for consistent randomness
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = (hash << 5) - hash + id.charCodeAt(i);
+      hash = hash & hash; // Convert to 32bit integer
+    }
+
+    // Use hash to generate offset between -50 and 50 pixels for better separation
+    const offset = (Math.abs(hash) % 100) - 50;
+    return offset;
+  };
+
+  const offset = getEdgeOffset();
 
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -141,7 +162,10 @@ export function RelationshipEdge({
     targetX: finalTargetX,
     targetY: finalTargetY,
     targetPosition,
+    offset, // Add offset to create path variation
   });
+
+  const [isHovered, setIsHovered] = React.useState(false);
 
   return (
     <>
@@ -169,19 +193,24 @@ export function RelationshipEdge({
         d={edgePath}
         markerEnd={edgeStyle.showArrow ? `url(#arrowhead-${id})` : undefined}
         onContextMenu={onContextMenu}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       />
       <EdgeLabelRenderer>
         <div
           style={{
             position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-            fontSize: 10,
+            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY + offset}px)`,
+            fontSize: 9,
             pointerEvents: 'all',
+            opacity: isHovered ? 1 : 0,
           }}
-          className="nodrag nopan bg-white px-2 py-1 rounded border text-xs text-gray-600 hover:bg-gray-50 cursor-context-menu"
+          className="nodrag nopan transition-opacity bg-white/95 backdrop-blur-sm px-1.5 py-0.5 rounded-md border border-gray-300 shadow-sm text-[9px] font-medium text-gray-700 hover:bg-gray-100 hover:border-gray-400 cursor-context-menu whitespace-nowrap"
           onContextMenu={onContextMenu}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
         >
-          {data?.relationship || 'relationship'}
+          {data?.relationship?.replace('_', ' ') || 'relationship'}
         </div>
       </EdgeLabelRenderer>
     </>

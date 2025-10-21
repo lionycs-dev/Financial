@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position, NodeProps } from 'reactflow';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Link } from 'lucide-react';
 
 interface FirstPurchaseNodeData {
   relationshipId: number;
@@ -20,13 +20,20 @@ interface FirstPurchaseNodeData {
  */
 export function FirstPurchaseNode({ data }: NodeProps<FirstPurchaseNodeData>) {
   return (
-    <div className="relative">
+    <div className="relative group">
+      {/* Drag handle indicator for upsell - visible on hover, positioned at bottom */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+        <div className="bg-blue-600 text-white rounded-full p-1.5 shadow-lg border-2 border-white">
+          <Link className="w-3 h-3" strokeWidth={2.5} />
+        </div>
+      </div>
+
       {/* Target handle - receives connection from client group */}
       <Handle
         type="target"
         position={Position.Left}
         id="first-purchase-target"
-        className="!bg-purple-500 !w-3 !h-3 !border-2 !border-white"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       {/* Main node - square box */}
@@ -40,7 +47,7 @@ export function FirstPurchaseNode({ data }: NodeProps<FirstPurchaseNodeData>) {
         type="source"
         position={Position.Bottom}
         id="upsell-source"
-        className="!bg-blue-500 !w-3 !h-3 !border-2 !border-white"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       {/* Source handle - connects to target product (for the automatic first purchase edge) */}
@@ -48,7 +55,7 @@ export function FirstPurchaseNode({ data }: NodeProps<FirstPurchaseNodeData>) {
         type="source"
         position={Position.Right}
         id="first-purchase-to-product"
-        className="!bg-purple-500 !w-3 !h-3 !border-2 !border-white"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       {/* Weight label if present */}

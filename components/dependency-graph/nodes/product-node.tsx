@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Package } from 'lucide-react';
+import { Package, Link } from 'lucide-react';
 
 interface ProductNodeData {
   id: number;
@@ -13,7 +13,7 @@ interface ProductNodeData {
 export function ProductNode({ data }: NodeProps<ProductNodeData>) {
   return (
     <div
-      className="bg-green-300 border-3 border-green-700 flex items-center justify-center relative shadow-lg"
+      className="bg-green-300 border-3 border-green-700 flex items-center justify-center relative shadow-lg group"
       style={{
         width: '100px',
         height: '100px',
@@ -32,33 +32,43 @@ export function ProductNode({ data }: NodeProps<ProductNodeData>) {
         <div className="text-[10px] text-green-800">${data.unitCost}</div>
       </div>
 
-      {/* Connection handles - small and subtle */}
+      {/* Drag handle indicator - visible on hover */}
+      <div
+        className="absolute -right-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+        style={{ transform: 'rotate(-45deg) translateY(-50%)' }}
+      >
+        <div className="bg-green-600 text-white rounded-full p-1.5 shadow-lg border-2 border-white">
+          <Link className="w-3 h-3" strokeWidth={2.5} />
+        </div>
+      </div>
+
+      {/* Connection handles - invisible but functional */}
       <Handle
         type="target"
         id="product_target"
         position={Position.Left}
-        className="!w-2 !h-2 !bg-green-600 !border !border-green-800"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       <Handle
         type="source"
         id="product_source"
         position={Position.Right}
-        className="!w-2 !h-2 !bg-green-600 !border !border-green-800"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       <Handle
         type="target"
         id="product_target_top"
         position={Position.Top}
-        className="!w-2 !h-2 !bg-green-600 !border !border-green-800"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
 
       <Handle
         type="source"
         id="product_source_bottom"
         position={Position.Bottom}
-        className="!w-2 !h-2 !bg-green-600 !border !border-green-800"
+        className="!w-6 !h-6 !bg-transparent !border-0 !opacity-100"
       />
     </div>
   );
